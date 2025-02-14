@@ -18,6 +18,8 @@ class db {
 
     public function query($query) {
         $result = $this->connection->execute_query($query);
+
+        return $result;
     }
 
     public function error($error) {

@@ -42,6 +42,7 @@ $result = $db->query($sql);
                 <hr>
 
                 <h3>Stats Table</h3>
+                <?php $db->query($sql); ?>
             </section>
         </main>
 
