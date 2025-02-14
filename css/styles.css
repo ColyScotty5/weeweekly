@@ -1,0 +1,191 @@
+/* ---------- VARS ---------- */
+:root {
+    --body-copy: #454634fc;
+    --club-red: #971f20;
+    --club-light-red: #ea5c5c;
+    --club-green: #ccda0b;
+    --club-dark-green: #959f09fc;
+
+    --bg-light-green: #fefff0;
+    --bg-green: #d5d8a6;
+
+    --content-max-width: 1280px;
+
+    --heading-font: "Andika", Helvetica, Verdana, sans-serif;
+    --body-font: Verdana, sans-serif;
+}
+
+/* CSS Reset - Source: https://www.joshwcomeau.com/css/custom-css-reset/ */
+
+/* 1. Use a more-intuitive box-sizing model */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+/* 2. Remove default margin */
+* {
+    margin: 0;
+}
+
+body {
+    /* 3. Add accessible line-height */
+    line-height: 1.5;
+    /* 4. Improve text rendering */
+    -webkit-font-smoothing: antialiased;
+}
+
+/* 5. Improve media defaults */
+img, picture, video, canvas, svg {
+    display: block;
+    max-width: 100%;
+}
+
+/* 6. Inherit fonts for form controls */
+input, button, textarea, select {
+    font: inherit;
+}
+
+/* 7. Avoid text overflows */
+p, h1, h2, h3, h4, h5, h6 {
+    overflow-wrap: break-word;
+}
+
+/* 8. Improve line wrapping */
+p {
+    text-wrap: pretty;
+}
+h1, h2, h3, h4, h5, h6 {
+    text-wrap: balance;
+}
+
+/*
+9. Create a root stacking context
+*/
+#root, #__next {
+    isolation: isolate;
+}
+
+
+/* ----------- BASE ----------- */
+
+html,
+body {
+    height: 100vh;
+    width: 100vw;
+}
+
+html {
+    font-size: 62.5%;
+}
+
+body {
+    background-color: var(--bg-light-green);
+    background-size: 10px 10px;
+    background-image: repeating-linear-gradient(45deg, var(--bg-green) 0, var(--bg-green) 1px, var(--bg-light-green) 0, var(--bg-light-green) 50%);
+    color: var(--body-copy);
+    font-family: var(--body-font);
+    overflow-x: hidden;
+}
+
+
+/* ----------- BASE ----------- */
+
+h1,
+h2,
+h3,
+h4 {
+    color: var(--club-red);
+    font-family: var(--heading-font);
+}
+
+h1 {
+    font-size: 3.4rem;
+}
+
+h2 {
+    font-size: 2.6rem;
+    margin-bottom: 1em;
+}
+
+h3 {
+    font-size: 2.1rem;
+}
+
+h4 {
+    font-size: 1.8;
+}
+
+p,
+li {
+    font-size: 1.6rem;
+    margin-bottom: 1em;
+}
+
+hr {
+    background-color: var(--club-green);
+    border: unset;
+    margin-bottom: 2em;
+    height: 1px;
+    width: 100%;
+}
+
+a,
+a:visited {
+    border: transparent 1px solid;
+    color: var(--club-red);
+    position: relative;
+    text-decoration: none;
+    transform: border 0.3s ease-in;
+}
+
+a::after,
+a:visited::after {
+    background-color: var(--club-red);
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    transition: width 0.15s ease-in;
+    height: 1px;
+    width: 0;
+}
+
+a:hover::after {
+    width: 100%;
+}
+
+
+/* ----------- LAYOUT ----------- */
+
+.main-wrapper {
+    display: grid;
+    justify-items: center;
+    padding: 5em;
+    height: 100vh;
+    width: 100vw;
+}
+
+.main-wrapper__inner {
+    background-color: white;
+    border: var(--club-green) 1px solid;
+    box-shadow: 0 0 12px 5px rgba(60, 79, 52, 0.15);
+    border-radius: 2em;
+    padding: 3.6em;
+    max-width: var(--content-max-width);
+    width: 100%;
+}
+
+footer {
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    padding: 0 5em 2em;
+}
+
+footer p:not(:last-of-type) {
+    margin-bottom: 1em;
+}
+
+footer p {
+    font-size: 1.2rem;
+}
