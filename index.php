@@ -14,7 +14,33 @@ $db = new db($dbhost, $dbuser, $dbpass, $dbname);
 
 $sql = "DESCRIBE `wee_weekly_stats`";
 
-$result = $db->query($sql);
+$sql_db_exists = 'CREATE DATABASE IF NOT EXISTS local';
+$sql_player_table_exists = "SHOW TABLES LIKE 'ww_players'";
+$table_exists_result = $db->query($sql_player_table_exists);
+
+
+// $sql_create_table_events = 'CREATE TABLE ww_events (
+//     id int,
+//     event_date datetime(255),
+//     event_type varchar(255),
+//     event_played int(1),
+//     total_players int(2)
+// )';
+
+// Check if ww_players table exists, create it if not.
+if ($table_exists_result->num_rows == 0) :
+    $sql_create_table_player = 'CREATE TABLE ww_players (
+        id int,
+        first_name varchar(255),
+        last_name varchar(255),
+        rank_points_singles int(5),
+        rank_points_doubles int(5),
+        total_matches_singles int(5),
+        total_matches_doubles int(5)
+    )';
+
+    $result = $db->query($sql_create_table_player);
+endif;
 
 ?>
 
