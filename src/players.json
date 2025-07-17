@@ -1,0 +1,23 @@
+[
+    {
+        "id": 1,
+        "name": "Player 1",
+        "wins": 10,
+        "losses": 5,
+        "rating": 1500
+    },
+    {
+        "id": 2,
+        "name": "Player 2",
+        "wins": 8,
+        "losses": 7,
+        "rating": 1450
+    },
+    {
+        "id": 3,
+        "name": "Player 3",
+        "wins": 12,
+        "losses": 3,
+        "rating": 1600
+    }
+]
