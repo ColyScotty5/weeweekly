@@ -1,11 +1,18 @@
 {
   "index.html": {
-    "file": "assets/main-BdAFi6QE.js",
+    "file": "assets/main-B8K2pMq_.js",
     "name": "main",
     "src": "index.html",
     "isEntry": true,
     "css": [
       "assets/main-BXCWkDLx.css"
+    ],
+    "assets": [
+      "assets/tennisball-D5nJyG38.svg"
     ]
+  },
+  "public/tennisball.svg": {
+    "file": "assets/tennisball-D5nJyG38.svg",
+    "src": "public/tennisball.svg"
   }
 }
