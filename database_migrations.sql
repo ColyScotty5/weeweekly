@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS matches (
     round_name TEXT NOT NULL, -- 'Final', 'Semi-Final', 'Quarter-Final', 'Round of 16', etc.
     bracket_type TEXT NOT NULL CHECK (bracket_type IN ('main', 'consolation')),
     match_number INTEGER, -- Position in the draw
+    bracket_position INTEGER, -- Position in bracket for tracking advancement
     status TEXT DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'in_progress', 'completed', 'walkover', 'cancelled')),
     score TEXT, -- Store match score as text (e.g., "6-4, 6-2")
     winner_id BIGINT REFERENCES players(id), -- Can be player1_id or player2_id

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'preact/hooks'
 import { matchesApi, resultsApi, eventsApi } from '../lib/supabase.js'
-import { calculatePoints, updatePlayerStats } from '../lib/tournamentUtils.js'
+import { calculatePoints, updatePlayerStats, createNextRoundMatches } from '../lib/tournamentUtils.js'
 
 export default function MatchResults({ eventId }) {
   const [matches, setMatches] = useState([])
@@ -99,6 +99,14 @@ export default function MatchResults({ eventId }) {
         // Update player statistics
         for (const playerResult of results) {
           await updatePlayerStats(playerResult.player_id, [playerResult], event.event_type)
+        }
+
+        // Check if this round is complete and create next round matches
+        try {
+          await createNextRoundMatches(eventId, match.round_name)
+        } catch (error) {
+          console.error('Error creating next round matches:', error)
+          // Don't fail the whole operation if next round creation fails
         }
       }
 

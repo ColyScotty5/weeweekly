@@ -47,42 +47,59 @@ export function generateSinglesDraw(participants) {
   // Find the next power of 2 that accommodates all players
   const drawSize = Math.pow(2, Math.ceil(Math.log2(totalPlayers)))
   
-  // Separate seeded and unseeded players
-  const seededPlayers = participants.filter(p => p.seed_position).sort((a, b) => a.seed_position - b.seed_position)
-  const unseededPlayers = participants.filter(p => !p.seed_position)
+  // Sort participants by ranking (best players first for seeding)
+  const sortedParticipants = [...participants].sort((a, b) => {
+    const aRanking = a.player?.singles_ranking_points || 0
+    const bRanking = b.player?.singles_ranking_points || 0
+    return bRanking - aRanking // Higher ranking points = better player
+  })
   
   // For singles, top 1/4 get seeded
   const maxSeeds = Math.floor(totalPlayers / 4)
-  const actualSeeds = Math.min(seededPlayers.length, maxSeeds)
+  const actualSeeds = Math.min(maxSeeds, totalPlayers)
+  
+  // Assign seed positions to top players
+  const seededPlayers = sortedParticipants.slice(0, actualSeeds).map((p, index) => ({
+    ...p,
+    seed_position: index + 1
+  }))
+  
+  // Remaining players are unseeded
+  const unseededPlayers = sortedParticipants.slice(actualSeeds)
   
   // Shuffle unseeded players
   const shuffledUnseeded = [...unseededPlayers].sort(() => Math.random() - 0.5)
   
-  // Create draw positions
-  const draw = new Array(drawSize).fill(null)
+  // Create bracket positions array
+  const bracket = new Array(drawSize).fill(null)
   
-  // Place seeded players in standard seeded positions
-  const seedPositions = getSeedPositions(drawSize, actualSeeds)
-  for (let i = 0; i < actualSeeds; i++) {
-    if (seededPlayers[i]) {
-      draw[seedPositions[i]] = seededPlayers[i]
+  // Place seeded players in standard positions
+  const seedPositions = getStandardSeedPositions(drawSize)
+  for (let i = 0; i < seededPlayers.length; i++) {
+    if (seedPositions[i] !== undefined) {
+      bracket[seedPositions[i]] = seededPlayers[i]
     }
   }
   
   // Fill remaining positions with unseeded players
   let unseededIndex = 0
   for (let i = 0; i < drawSize && unseededIndex < shuffledUnseeded.length; i++) {
-    if (draw[i] === null) {
-      draw[i] = shuffledUnseeded[unseededIndex]
+    if (bracket[i] === null) {
+      bracket[i] = shuffledUnseeded[unseededIndex]
       unseededIndex++
     }
   }
   
+  // Calculate number of byes (empty positions that advance automatically)
+  const numberOfByes = drawSize - totalPlayers
+  
   return {
-    draw: draw.filter(p => p !== null), // Remove empty slots
+    bracket,
     drawSize,
     totalPlayers,
-    seededCount: actualSeeds
+    seededCount: actualSeeds,
+    numberOfByes,
+    firstRoundMatches: Math.floor((totalPlayers + 1) / 2) // Actual matches in first round
   }
 }
 
@@ -133,67 +150,107 @@ export function generateDoublesDraw(participants) {
   }
 }
 
-// Get standard seed positions for a draw
-function getSeedPositions(drawSize, seedCount) {
+// Get standard seed positions for a draw (tennis tournament seeding)
+function getStandardSeedPositions(drawSize) {
   const positions = []
   
-  // Standard seeding positions
-  if (seedCount >= 1) positions.push(0) // Seed 1 at top
-  if (seedCount >= 2) positions.push(drawSize - 1) // Seed 2 at bottom
-  if (seedCount >= 3) positions.push(Math.floor(drawSize / 2) - 1) // Seed 3
-  if (seedCount >= 4) positions.push(Math.floor(drawSize / 2)) // Seed 4
+  // Standard tennis seeding positions
+  positions[0] = 0 // Seed 1 at position 0 (top)
+  positions[1] = drawSize - 1 // Seed 2 at bottom
   
-  // For more seeds, distribute them evenly
-  if (seedCount > 4) {
-    const sectionSize = drawSize / seedCount
-    for (let i = 4; i < seedCount; i++) {
-      positions.push(Math.floor(i * sectionSize))
+  if (drawSize >= 4) {
+    positions[2] = Math.floor(drawSize / 2) - 1 // Seed 3
+    positions[3] = Math.floor(drawSize / 2) // Seed 4
+  }
+  
+  // For 8 seeds in larger draws
+  if (drawSize >= 8) {
+    positions[4] = Math.floor(drawSize / 4) - 1 // Seed 5
+    positions[5] = Math.floor(drawSize / 4) // Seed 6
+    positions[6] = Math.floor(3 * drawSize / 4) - 1 // Seed 7
+    positions[7] = Math.floor(3 * drawSize / 4) // Seed 8
+  }
+  
+  // For 16 seeds in very large draws
+  if (drawSize >= 16) {
+    const eighthSize = Math.floor(drawSize / 8)
+    for (let i = 8; i < 16 && i < drawSize; i++) {
+      const section = i - 8
+      positions[i] = section * eighthSize + Math.floor(eighthSize / 2)
     }
   }
   
-  return positions.slice(0, seedCount)
+  return positions
 }
 
 // Generate matches for a draw
 export function generateMatches(eventId, draw, eventType = 'singles') {
   const matches = []
-  const drawSize = draw.drawSize || draw.teams?.length || draw.draw?.length
   
   if (eventType === 'singles') {
-    const players = draw.draw
-    
-    // Generate first round matches
-    for (let i = 0; i < players.length - 1; i += 2) {
-      if (players[i] && players[i + 1]) {
-        matches.push({
-          event_id: eventId,
-          player1_id: players[i].player_id,
-          player2_id: players[i + 1].player_id,
-          round_name: getRoundName(drawSize, 1),
-          bracket_type: 'main',
-          match_number: Math.floor(i / 2) + 1,
-          status: 'scheduled'
-        })
-      }
-    }
+    return generateSinglesMatches(eventId, draw)
   } else {
-    const teams = draw.teams
+    return generateDoublesMatches(eventId, draw)
+  }
+}
+
+// Generate singles matches with proper bracket structure
+function generateSinglesMatches(eventId, draw) {
+  const matches = []
+  const { bracket, drawSize, totalPlayers } = draw
+  
+  // Generate first round matches only where both players exist
+  let matchNumber = 1
+  
+  for (let i = 0; i < drawSize; i += 2) {
+    const player1 = bracket[i]
+    const player2 = bracket[i + 1]
     
-    // Generate first round matches for doubles
-    for (let i = 0; i < teams.length - 1; i += 2) {
-      if (teams[i] && teams[i + 1]) {
-        matches.push({
-          event_id: eventId,
-          player1_id: teams[i].player1.player_id,
-          player1_partner_id: teams[i].player2.player_id,
-          player2_id: teams[i + 1].player1.player_id,
-          player2_partner_id: teams[i + 1].player2.player_id,
-          round_name: getRoundName(drawSize, 1),
-          bracket_type: 'main',
-          match_number: Math.floor(i / 2) + 1,
-          status: 'scheduled'
-        })
-      }
+    // Only create a match if both positions have players
+    if (player1 && player2) {
+      matches.push({
+        event_id: eventId,
+        player1_id: player1.player_id,
+        player2_id: player2.player_id,
+        round_name: getRoundName(drawSize, 1),
+        bracket_type: 'main',
+        match_number: matchNumber,
+        status: 'scheduled',
+        bracket_position: Math.floor(i / 2) // Track position in bracket for advancement
+      })
+      matchNumber++
+    }
+    // If only one player exists, they get a bye (automatic advancement)
+    // We don't create a match for byes - they advance automatically
+  }
+  
+  return matches
+}
+
+// Generate doubles matches
+function generateDoublesMatches(eventId, draw) {
+  const matches = []
+  const { teams, drawSize } = draw
+  let matchNumber = 1
+  
+  for (let i = 0; i < teams.length; i += 2) {
+    const team1 = teams[i]
+    const team2 = teams[i + 1]
+    
+    if (team1 && team2) {
+      matches.push({
+        event_id: eventId,
+        player1_id: team1.player1.player_id,
+        player1_partner_id: team1.player2.player_id,
+        player2_id: team2.player1.player_id,
+        player2_partner_id: team2.player2.player_id,
+        round_name: getRoundName(drawSize, 1),
+        bracket_type: 'main',
+        match_number: matchNumber,
+        status: 'scheduled',
+        bracket_position: Math.floor(i / 2)
+      })
+      matchNumber++
     }
   }
   
@@ -257,6 +314,120 @@ export function calculateRankingPoints(playerResults, eventType) {
   const totalEvents = new Set(sortedResults.map(r => r.match?.event?.id)).size
   
   return totalEvents > 0 ? totalPoints / totalEvents : 0
+}
+
+// Create next round matches when current round is complete
+export async function createNextRoundMatches(eventId, completedRound) {
+  const { matchesApi, eventsApi } = await import('./supabase.js')
+  
+  try {
+    // Get all matches for the event
+    const allMatches = await matchesApi.getByEvent(eventId)
+    const event = await eventsApi.getById(eventId)
+    
+    // Get completed matches from the current round
+    const currentRoundMatches = allMatches.filter(m => 
+      m.round_name === completedRound && m.status === 'completed'
+    )
+    
+    // Check if all matches in current round are complete
+    const allCurrentRoundMatches = allMatches.filter(m => m.round_name === completedRound)
+    if (currentRoundMatches.length !== allCurrentRoundMatches.length) {
+      return false // Not all matches in round are complete
+    }
+    
+    // Get winners from current round
+    const winners = currentRoundMatches.map(match => ({
+      winnerId: match.winner_id,
+      bracketPosition: match.bracket_position
+    }))
+    
+    // Add players with byes (who advanced automatically)
+    const playersWithByes = await getPlayersWithByes(eventId, completedRound)
+    winners.push(...playersWithByes)
+    
+    // Sort by bracket position to maintain proper bracket structure
+    winners.sort((a, b) => a.bracketPosition - b.bracketPosition)
+    
+    // Create next round matches
+    const nextRoundName = getNextRoundName(completedRound)
+    if (!nextRoundName) return true // Tournament is complete
+    
+    const nextRoundMatches = []
+    let matchNumber = 1
+    
+    for (let i = 0; i < winners.length; i += 2) {
+      if (winners[i] && winners[i + 1]) {
+        const match = {
+          event_id: eventId,
+          player1_id: winners[i].winnerId,
+          player2_id: winners[i + 1].winnerId,
+          round_name: nextRoundName,
+          bracket_type: 'main',
+          match_number: matchNumber,
+          status: 'scheduled',
+          bracket_position: Math.floor(i / 2)
+        }
+        
+        // For doubles, we need to get partner information
+        if (event.event_type === 'doubles') {
+          const player1Match = currentRoundMatches.find(m => m.winner_id === winners[i].winnerId)
+          const player2Match = currentRoundMatches.find(m => m.winner_id === winners[i + 1].winnerId)
+          
+          if (player1Match) {
+            match.player1_partner_id = player1Match.winner_id === player1Match.player1_id 
+              ? player1Match.player1_partner_id 
+              : player1Match.player2_partner_id
+          }
+          
+          if (player2Match) {
+            match.player2_partner_id = player2Match.winner_id === player2Match.player1_id 
+              ? player2Match.player1_partner_id 
+              : player2Match.player2_partner_id
+          }
+        }
+        
+        nextRoundMatches.push(match)
+        matchNumber++
+      }
+    }
+    
+    // Create the matches in the database
+    for (const match of nextRoundMatches) {
+      await matchesApi.create(match)
+    }
+    
+    return true
+  } catch (error) {
+    console.error('Error creating next round matches:', error)
+    return false
+  }
+}
+
+// Get players who received byes in a round
+async function getPlayersWithByes(eventId, roundName) {
+  // This would need to be implemented based on how we track byes
+  // For now, return empty array
+  return []
+}
+
+// Get the next round name
+function getNextRoundName(currentRound) {
+  const roundOrder = [
+    'Round of 64',
+    'Round of 32', 
+    'Round of 16',
+    'Quarter-Final',
+    'Semi-Final',
+    'Final'
+  ]
+  
+  const currentIndex = roundOrder.indexOf(currentRound)
+  if (currentIndex === -1 || currentIndex === roundOrder.length - 1) {
+    return null // No next round or tournament complete
+  }
+  
+  return roundOrder[currentIndex + 1]
 }
 
 // Update player statistics after a tournament
