@@ -4,6 +4,8 @@ import { matchesApi } from '../lib/supabase.js'
 export default function TournamentBracket({ event, onMatchUpdate }) {
   const [matches, setMatches] = useState([])
   const [loading, setLoading] = useState(false)
+  const [selectedMatch, setSelectedMatch] = useState(null)
+  const [showDialog, setShowDialog] = useState(false)
 
   useEffect(() => {
     if (event?.id) {
@@ -53,9 +55,66 @@ export default function TournamentBracket({ event, onMatchUpdate }) {
             matches={matchesByRound[round]}
             eventType={event.event_type}
             onMatchUpdate={onMatchUpdate}
+            onMatchClick={(match) => {
+              setSelectedMatch(match)
+              setShowDialog(true)
+            }}
           />
         ))}
       </div>
+
+      {/* Match Dialog */}
+      {showDialog && selectedMatch && (
+        <MatchDialog
+          match={selectedMatch}
+          eventType={event.event_type}
+          onClose={() => {
+            setShowDialog(false)
+            setSelectedMatch(null)
+          }}
+          onSave={async (updatedMatch) => {
+            try {
+              console.log('Updating match with data:', updatedMatch)
+              
+              // Prepare the update data - only include fields that should be updated
+              const updateData = {
+                status: updatedMatch.status
+              }
+              
+              // Only add winner_id if it's set
+              if (updatedMatch.winner_id) {
+                updateData.winner_id = updatedMatch.winner_id
+              }
+              
+              // Only add score if it's set
+              if (updatedMatch.score) {
+                updateData.score = updatedMatch.score
+              }
+              
+              // Add completion timestamp if match is completed
+              if (updatedMatch.status === 'completed') {
+                updateData.completed_at = new Date().toISOString()
+              }
+              
+              console.log('Sending update data:', updateData)
+              console.log('Match ID:', updatedMatch.id)
+              const result = await matchesApi.update(updatedMatch.id, updateData)
+              console.log('Update successful:', result)
+              
+              await loadMatches() // Reload matches to get updated data
+              if (onMatchUpdate) {
+                onMatchUpdate(result)
+              }
+              setShowDialog(false)
+              setSelectedMatch(null)
+            } catch (error) {
+              console.error('Error updating match:', error)
+              console.error('Error details:', error.message, error.details)
+              alert(`Failed to update match: ${error.message || 'Unknown error'}. Please try again.`)
+            }
+          }}
+        />
+      )}
 
       {/* Legend */}
       <div style={{ 
@@ -110,7 +169,7 @@ export default function TournamentBracket({ event, onMatchUpdate }) {
   )
 }
 
-function RoundColumn({ round, roundIndex, matches, eventType, onMatchUpdate }) {
+function RoundColumn({ round, roundIndex, matches, eventType, onMatchUpdate, onMatchClick }) {
   return (
     <div className="round-column">
       <h4 className="round-header">
@@ -126,6 +185,7 @@ function RoundColumn({ round, roundIndex, matches, eventType, onMatchUpdate }) {
             roundIndex={roundIndex}
             eventType={eventType}
             onUpdate={onMatchUpdate}
+            onClick={() => onMatchClick(match)}
           />
         ))}
       </div>
@@ -133,7 +193,7 @@ function RoundColumn({ round, roundIndex, matches, eventType, onMatchUpdate }) {
   )
 }
 
-function MatchCard({ match, matchIndex, roundIndex, eventType, onUpdate }) {
+function MatchCard({ match, matchIndex, roundIndex, eventType, onUpdate, onClick }) {
   const getPlayerDisplay = (player, partner = null) => {
     if (!player) return 'TBD'
     return partner ? `${player.name} / ${partner.name}` : player.name
@@ -172,7 +232,12 @@ function MatchCard({ match, matchIndex, roundIndex, eventType, onUpdate }) {
   }
 
   return (
-    <div className="match-card" data-round={roundIndex} data-match={matchIndex}>
+    <div 
+      className="match-card clickable" 
+      data-round={roundIndex} 
+      data-match={matchIndex}
+      onClick={onClick}
+    >
       {/* Seed badges */}
       {match.player1?.seed_position && (
         <div className={getSeedBadgeClass(match.player1.seed_position)}>
@@ -208,11 +273,11 @@ function MatchCard({ match, matchIndex, roundIndex, eventType, onUpdate }) {
       </div>
 
       {/* Player 1 */}
-      <div className="player-row" style={{
+      <div className={`player-row ${match.status === 'completed' && match.winner_id !== match.player1_id ? 'loser' : ''}`} style={{
         backgroundColor: getMatchBackgroundColor(match.status, match.winner_id, match.player1_id)
       }}>
         <div className="player-info">
-          <div className={`player-name ${match.winner_id === match.player1_id ? 'winner' : ''}`}>
+          <div className={`player-name ${match.winner_id === match.player1_id ? 'winner' : ''} ${match.status === 'completed' && match.winner_id !== match.player1_id ? 'loser' : ''}`}>
             {getPlayerDisplay(match.player1, match.player1_partner)}
             {match.player1?.seed_position && (
               <span style={{ marginLeft: '8px', fontSize: '0.8em', color: '#ff6b35', fontWeight: 'bold' }}>
@@ -235,11 +300,11 @@ function MatchCard({ match, matchIndex, roundIndex, eventType, onUpdate }) {
       </div>
 
       {/* Player 2 */}
-      <div className="player-row" style={{
+      <div className={`player-row ${match.status === 'completed' && match.winner_id !== match.player2_id ? 'loser' : ''}`} style={{
         backgroundColor: getMatchBackgroundColor(match.status, match.winner_id, match.player2_id)
       }}>
         <div className="player-info">
-          <div className={`player-name ${match.winner_id === match.player2_id ? 'winner' : ''}`}>
+          <div className={`player-name ${match.winner_id === match.player2_id ? 'winner' : ''} ${match.status === 'completed' && match.winner_id !== match.player2_id ? 'loser' : ''}`}>
             {getPlayerDisplay(match.player2, match.player2_partner)}
             {match.player2?.seed_position && (
               <span style={{ marginLeft: '8px', fontSize: '0.8em', color: '#ff6b35', fontWeight: 'bold' }}>
@@ -286,6 +351,215 @@ function MatchCard({ match, matchIndex, roundIndex, eventType, onUpdate }) {
         </div>
       )}
 
+    </div>
+  )
+}
+
+// Match Dialog Component for editing match details
+function MatchDialog({ match, eventType, onClose, onSave }) {
+  const [status, setStatus] = useState(match.status || 'scheduled')
+  const [winnerId, setWinnerId] = useState(match.winner_id || '')
+  const [player1Score, setPlayer1Score] = useState('')
+  const [player2Score, setPlayer2Score] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  // Parse existing score if available
+  useEffect(() => {
+    if (match.score) {
+      const scoreParts = match.score.split('-')
+      if (scoreParts.length === 2) {
+        setPlayer1Score(scoreParts[0].trim())
+        setPlayer2Score(scoreParts[1].trim())
+      }
+    }
+  }, [match.score])
+
+  const getPlayerDisplay = (player, partner = null) => {
+    if (!player) return 'TBD'
+    return partner ? `${player.name} / ${partner.name}` : player.name
+  }
+
+  const handleSave = async () => {
+    setLoading(true)
+    
+    try {
+      console.log('MatchDialog handleSave called with:', {
+        status,
+        winnerId,
+        player1Score,
+        player2Score,
+        matchId: match.id
+      })
+
+      const updatedMatch = {
+        ...match,
+        status,
+        winner_id: status === 'completed' || status === 'walkover' ? winnerId : null,
+        score: status === 'completed' && player1Score && player2Score 
+          ? `${player1Score}-${player2Score}` 
+          : null
+      }
+
+      console.log('Calling onSave with updatedMatch:', updatedMatch)
+      await onSave(updatedMatch)
+    } catch (error) {
+      console.error('Error in MatchDialog handleSave:', error)
+      alert(`Error saving match: ${error.message || 'Unknown error'}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const isFormValid = () => {
+    if (status === 'completed') {
+      return winnerId && player1Score && player2Score
+    }
+    if (status === 'walkover') {
+      return winnerId
+    }
+    return true
+  }
+
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose()
+    }
+  }
+
+  return (
+    <div className="match-dialog-overlay" onClick={handleOverlayClick}>
+      <div className="match-dialog">
+        <div className="dialog-header">
+          <h3 className="dialog-title">Edit Match {match.match_number}</h3>
+          <button className="dialog-close" onClick={onClose}>×</button>
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">Match Status</label>
+          <select 
+            className="form-select"
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+          >
+            <option value="scheduled">Scheduled</option>
+            <option value="in_progress">In Progress</option>
+            <option value="completed">Completed</option>
+            <option value="walkover">Walkover</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+
+        {status === 'completed' && (
+          <>
+            <div className="form-group">
+              <label className="form-label">Winner</label>
+              <div className="winner-selection">
+                <div 
+                  className={`winner-option ${winnerId === match.player1_id ? 'selected' : ''}`}
+                  onClick={() => setWinnerId(match.player1_id)}
+                >
+                  <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
+                    {getPlayerDisplay(match.player1, match.player1_partner)}
+                  </div>
+                  {match.player1?.seed_position && (
+                    <div style={{ fontSize: '0.8em', color: '#666' }}>
+                      Seed #{match.player1.seed_position}
+                    </div>
+                  )}
+                </div>
+                <div 
+                  className={`winner-option ${winnerId === match.player2_id ? 'selected' : ''}`}
+                  onClick={() => setWinnerId(match.player2_id)}
+                >
+                  <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
+                    {getPlayerDisplay(match.player2, match.player2_partner)}
+                  </div>
+                  {match.player2?.seed_position && (
+                    <div style={{ fontSize: '0.8em', color: '#666' }}>
+                      Seed #{match.player2.seed_position}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Score (1 Set)</label>
+              <div className="score-input-group">
+                <input
+                  type="number"
+                  className="form-input score-input"
+                  placeholder="0"
+                  min="0"
+                  max="7"
+                  value={player1Score}
+                  onChange={(e) => setPlayer1Score(e.target.value)}
+                />
+                <span style={{ fontWeight: 'bold', fontSize: '1.2em' }}>-</span>
+                <input
+                  type="number"
+                  className="form-input score-input"
+                  placeholder="0"
+                  min="0"
+                  max="7"
+                  value={player2Score}
+                  onChange={(e) => setPlayer2Score(e.target.value)}
+                />
+              </div>
+              <div style={{ fontSize: '0.8em', color: '#666', marginTop: '4px' }}>
+                Enter games won by each player/team
+              </div>
+            </div>
+          </>
+        )}
+
+        {(status === 'walkover' || status === 'cancelled') && (
+          <div className="form-group">
+            <label className="form-label">
+              {status === 'walkover' ? 'Winner (Walkover)' : 'Result'}
+            </label>
+            {status === 'walkover' ? (
+              <div className="winner-selection">
+                <div 
+                  className={`winner-option ${winnerId === match.player1_id ? 'selected' : ''}`}
+                  onClick={() => setWinnerId(match.player1_id)}
+                >
+                  {getPlayerDisplay(match.player1, match.player1_partner)}
+                </div>
+                <div 
+                  className={`winner-option ${winnerId === match.player2_id ? 'selected' : ''}`}
+                  onClick={() => setWinnerId(match.player2_id)}
+                >
+                  {getPlayerDisplay(match.player2, match.player2_partner)}
+                </div>
+              </div>
+            ) : (
+              <div style={{ 
+                padding: '12px', 
+                backgroundColor: '#f8d7da', 
+                borderRadius: '6px',
+                color: '#721c24',
+                textAlign: 'center'
+              }}>
+                Match has been cancelled
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="dialog-actions">
+          <button className="btn btn-secondary" onClick={onClose}>
+            Cancel
+          </button>
+          <button 
+            className="btn btn-primary" 
+            onClick={handleSave}
+            disabled={loading || !isFormValid()}
+          >
+            {loading ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

@@ -351,7 +351,34 @@ export const matchesApi = {
     return data
   },
 
-  // Update match result
+  // Update match (general update method)
+  async update(id, updates) {
+    console.log('matchesApi.update called with:', { id, updates })
+    
+    const { data, error } = await supabase
+      .from('matches')
+      .update(updates)
+      .eq('id', id)
+      .select(`
+        *,
+        player1:players!matches_player1_id_fkey(*),
+        player2:players!matches_player2_id_fkey(*),
+        player1_partner:players!matches_player1_partner_id_fkey(*),
+        player2_partner:players!matches_player2_partner_id_fkey(*),
+        winner:players!matches_winner_id_fkey(*)
+      `)
+      .single()
+    
+    if (error) {
+      console.error('Supabase update error:', error)
+      throw error
+    }
+    
+    console.log('matchesApi.update successful:', data)
+    return data
+  },
+
+  // Update match result (legacy method for backwards compatibility)
   async updateResult(id, result) {
     const { data, error } = await supabase
       .from('matches')
