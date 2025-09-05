@@ -38,9 +38,13 @@ export default function TournamentManager() {
   const createTournament = async (tournamentData) => {
     setLoading(true)
     try {
+      // Fix timezone issue by ensuring date is treated as local date
+      const localDate = new Date(tournamentData.date + 'T12:00:00')
+      const formattedDate = localDate.toISOString().split('T')[0]
+      
       const tournament = await tournamentsApi.create({
         name: tournamentData.name,
-        tournament_date: tournamentData.date,
+        tournament_date: formattedDate,
         description: tournamentData.description,
         status: 'upcoming'
       })
@@ -146,7 +150,7 @@ export default function TournamentManager() {
               >
                 <div style={{ fontWeight: 'bold' }}>{tournament.name}</div>
                 <div style={{ fontSize: '0.9em', color: '#666' }}>
-                  {new Date(tournament.tournament_date).toLocaleDateString()}
+                  {new Date(tournament.tournament_date + 'T12:00:00').toLocaleDateString()}
                 </div>
                 <div style={{ fontSize: '0.8em', color: '#999' }}>
                   Status: {tournament.status}
@@ -175,9 +179,18 @@ export default function TournamentManager() {
 }
 
 function CreateTournamentForm({ onSubmit, loading }) {
+  // Get today's date in local timezone
+  const getLocalDateString = () => {
+    const today = new Date()
+    const year = today.getFullYear()
+    const month = String(today.getMonth() + 1).padStart(2, '0')
+    const day = String(today.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
   const [formData, setFormData] = useState({
     name: '',
-    date: new Date().toISOString().split('T')[0],
+    date: getLocalDateString(),
     description: '',
     includeSingles: true,
     includeDoubles: true,
@@ -354,7 +367,7 @@ function TournamentDetails({ tournament, players, onUpdate }) {
   return (
     <div>
       <h3>{tournament.name}</h3>
-      <p><strong>Date:</strong> {new Date(tournament.tournament_date).toLocaleDateString()}</p>
+      <p><strong>Date:</strong> {new Date(tournament.tournament_date + 'T12:00:00').toLocaleDateString()}</p>
       <p><strong>Status:</strong> {tournament.status}</p>
       {tournament.description && <p><strong>Description:</strong> {tournament.description}</p>}
 

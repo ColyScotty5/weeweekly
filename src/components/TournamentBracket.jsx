@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'preact/hooks'
 import { matchesApi } from '../lib/supabase.js'
+import { createNextRoundMatches } from '../lib/tournamentUtils.js'
 
 export default function TournamentBracket({ event, onMatchUpdate }) {
   const [matches, setMatches] = useState([])
@@ -100,6 +101,22 @@ export default function TournamentBracket({ event, onMatchUpdate }) {
               console.log('Match ID:', updatedMatch.id)
               const result = await matchesApi.update(updatedMatch.id, updateData)
               console.log('Update successful:', result)
+              
+              // If match was completed, check if we need to create next round matches
+              if (updatedMatch.status === 'completed') {
+                console.log('Match completed, checking for next round creation...')
+                try {
+                  const nextRoundCreated = await createNextRoundMatches(event.id, result.round_name)
+                  if (nextRoundCreated) {
+                    console.log('Next round matches created successfully')
+                  } else {
+                    console.log('Next round not ready yet or tournament complete')
+                  }
+                } catch (error) {
+                  console.error('Error creating next round matches:', error)
+                  // Don't fail the whole operation if next round creation fails
+                }
+              }
               
               await loadMatches() // Reload matches to get updated data
               if (onMatchUpdate) {
