@@ -320,10 +320,14 @@ export function calculateRankingPoints(playerResults, eventType) {
 export async function createNextRoundMatches(eventId, completedRound) {
   const { matchesApi, eventsApi } = await import('./supabase.js')
   
+  console.log(`Checking for next round creation after ${completedRound} completion`)
+  
   try {
     // Get all matches for the event
     const allMatches = await matchesApi.getByEvent(eventId)
     const event = await eventsApi.getById(eventId)
+    
+    console.log(`Total matches in event: ${allMatches.length}`)
     
     // Get completed matches from the current round
     const currentRoundMatches = allMatches.filter(m => 
@@ -332,9 +336,14 @@ export async function createNextRoundMatches(eventId, completedRound) {
     
     // Check if all matches in current round are complete
     const allCurrentRoundMatches = allMatches.filter(m => m.round_name === completedRound)
+    console.log(`${completedRound}: ${currentRoundMatches.length} completed out of ${allCurrentRoundMatches.length} total`)
+    
     if (currentRoundMatches.length !== allCurrentRoundMatches.length) {
+      console.log('Not all matches in round are complete yet')
       return false // Not all matches in round are complete
     }
+    
+    console.log(`All matches in ${completedRound} are complete! Creating next round...`)
     
     // Get winners from current round
     const winners = currentRoundMatches.map(match => ({
@@ -353,8 +362,17 @@ export async function createNextRoundMatches(eventId, completedRound) {
     const nextRoundName = getNextRoundName(completedRound)
     if (!nextRoundName) return true // Tournament is complete
     
+    // Check if next round matches already exist
+    const existingNextRoundMatches = allMatches.filter(m => m.round_name === nextRoundName)
+    if (existingNextRoundMatches.length > 0) {
+      console.log('Next round matches already exist')
+      return false
+    }
+    
     const nextRoundMatches = []
-    let matchNumber = 1
+    // Get the highest match number from all matches to continue numbering
+    const maxMatchNumber = Math.max(...allMatches.map(m => m.match_number || 0))
+    let matchNumber = maxMatchNumber + 1
     
     for (let i = 0; i < winners.length; i += 2) {
       if (winners[i] && winners[i + 1]) {
@@ -393,10 +411,13 @@ export async function createNextRoundMatches(eventId, completedRound) {
     }
     
     // Create the matches in the database
+    console.log(`Creating ${nextRoundMatches.length} matches for ${nextRoundName}`)
     for (const match of nextRoundMatches) {
+      console.log('Creating match:', match)
       await matchesApi.create(match)
     }
     
+    console.log(`Successfully created ${nextRoundMatches.length} matches for ${nextRoundName}`)
     return true
   } catch (error) {
     console.error('Error creating next round matches:', error)
