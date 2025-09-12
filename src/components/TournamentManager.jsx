@@ -131,7 +131,7 @@ export default function TournamentManager() {
         />
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '20px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 460px) 1fr', gap: '20px' }}>
         <div className="tournament-card">
           <h3>Tournaments</h3>
           <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
@@ -139,20 +139,13 @@ export default function TournamentManager() {
               <div
                 key={tournament.id}
                 onClick={() => loadTournamentDetails(tournament.id)}
-                style={{
-                  padding: '10px',
-                  margin: '5px 0',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  backgroundColor: selectedTournament?.id === tournament.id ? '#e3f2fd' : 'white'
-                }}
+                className={`tournament-item ${selectedTournament?.id === tournament.id ? 'selected' : ''}`}
               >
-                <div style={{ fontWeight: 'bold' }}>{tournament.name}</div>
-                <div style={{ fontSize: '0.9em', color: '#666' }}>
+                <div className="tournament-item-title">{tournament.name}</div>
+                <div className="tournament-item-date">
                   {new Date(tournament.tournament_date + 'T12:00:00').toLocaleDateString()}
                 </div>
-                <div style={{ fontSize: '0.8em', color: '#999' }}>
+                <div className="tournament-item-status">
                   Status: {tournament.status}
                 </div>
               </div>
