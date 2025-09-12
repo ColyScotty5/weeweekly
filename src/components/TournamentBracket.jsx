@@ -156,50 +156,31 @@ export default function TournamentBracket({ event, onMatchUpdate }) {
       )}
 
       {/* Legend */}
-      <div style={{ 
-        marginTop: '20px', 
-        padding: '15px', 
-        backgroundColor: '#f8f9fa', 
-        borderRadius: '8px',
-        fontSize: '0.9em',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-      }}>
+      <div className="bracket-legend">
         <strong>Legend:</strong>
-        <div style={{ display: 'flex', gap: '20px', marginTop: '12px', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: '14px', height: '14px', backgroundColor: '#e3f2fd', border: '1px solid #ddd', borderRadius: '3px' }}></div>
+        <div className="legend-items">
+          <div className="legend-item">
+            <div className="legend-indicator legend-scheduled"></div>
             Scheduled
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: '14px', height: '14px', backgroundColor: '#fff3cd', border: '1px solid #ddd', borderRadius: '3px' }}></div>
+          <div className="legend-item">
+            <div className="legend-indicator legend-in-progress"></div>
             In Progress
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: '14px', height: '14px', backgroundColor: '#d4edda', border: '1px solid #ddd', borderRadius: '3px' }}></div>
+          <div className="legend-item">
+            <div className="legend-indicator legend-completed"></div>
             Completed
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: '14px', height: '14px', backgroundColor: '#f8d7da', border: '1px solid #ddd', borderRadius: '3px' }}></div>
+          <div className="legend-item">
+            <div className="legend-indicator legend-walkover"></div>
             Walkover/Cancelled
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ 
-              width: '20px', 
-              height: '14px', 
-              background: 'linear-gradient(135deg, #ffd700, #ffb347)', 
-              border: '1px solid #ddd', 
-              borderRadius: '8px',
-              fontSize: '0.6em',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#333',
-              fontWeight: 'bold'
-            }}>#1</div>
+          <div className="legend-item">
+            <div className="legend-seed">#1</div>
             Top Seeds
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: '14px', height: '2px', backgroundColor: '#007bff', opacity: '0.6' }}></div>
+          <div className="legend-item">
+            <div className="legend-connection"></div>
             Bracket Connections
           </div>
         </div>
