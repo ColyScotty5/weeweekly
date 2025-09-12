@@ -477,6 +477,16 @@ body {
     cursor: pointer;
 }
 
+.match-card.completed {
+    cursor: default !important;
+    opacity: 0.8;
+}
+
+.match-card.completed:hover {
+    transform: none;
+    box-shadow: 0 4px 8px var(--shadow);
+}
+
 .match-header {
     padding: 10px 15px;
     background: var(--bg-primary);

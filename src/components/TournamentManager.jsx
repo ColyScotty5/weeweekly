@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'preact/hooks'
 import { tournamentsApi, eventsApi, playersApi, participantsApi, matchesApi } from '../lib/supabase.js'
-import { generateSinglesDraw, generateDoublesDraw, generateMatches } from '../lib/tournamentUtils.js'
+import { generateSinglesDraw, generateDoublesDraw, generateMatches, POINTS_SYSTEM } from '../lib/tournamentUtils.js'
 import TournamentBracket from './TournamentBracket.jsx'
 
 export default function TournamentManager() {
@@ -372,6 +372,27 @@ function TournamentDetails({ tournament, players, onUpdate }) {
   const [bracketView, setBracketView] = useState(null)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [eventMatches, setEventMatches] = useState({})
+
+  // Load matches for an event to check completion status
+  const loadEventMatches = async (eventId) => {
+    try {
+      const matches = await matchesApi.getByEvent(eventId)
+      setEventMatches(prev => ({ ...prev, [eventId]: matches }))
+      return matches
+    } catch (error) {
+      console.error('Error loading event matches:', error)
+      return []
+    }
+  }
+
+  // Check if all matches in an event are completed (no in_progress matches)
+  const canCompleteEvent = (eventId) => {
+    const matches = eventMatches[eventId] || []
+    return matches.length > 0 && matches.every(match => 
+      match.status === 'completed' || match.status === 'walkover' || match.status === 'cancelled'
+    )
+  }
 
   const generateDraw = async (eventId, eventType) => {
     setLoading(true)
@@ -405,6 +426,8 @@ function TournamentDetails({ tournament, players, onUpdate }) {
       })
 
       setMessage('✅ Draw generated successfully!')
+      // Load matches for the event to enable completion checking
+      await loadEventMatches(eventId)
       onUpdate()
     } catch (error) {
       console.error('Error generating draw:', error)
@@ -413,6 +436,123 @@ function TournamentDetails({ tournament, players, onUpdate }) {
       setLoading(false)
     }
   }
+
+  const completeEvent = async (event) => {
+    setLoading(true)
+    try {
+      const matches = eventMatches[event.id] || []
+      
+      if (!canCompleteEvent(event.id)) {
+        setMessage('❌ Cannot complete event: some matches are still in progress')
+        return
+      }
+
+      // Calculate points for each participant
+      const participants = event.event_participants || []
+      const pointsSystem = POINTS_SYSTEM[event.event_type]?.main || {}
+      
+      for (const participant of participants) {
+        // Find the participant's best result in the tournament
+        const playerMatches = matches.filter(match => 
+          match.player1_id === participant.player_id || 
+          match.player2_id === participant.player_id ||
+          match.player1_partner_id === participant.player_id ||
+          match.player2_partner_id === participant.player_id
+        )
+
+        // Determine the furthest round reached
+        const furthestRound = calculateFurthestRound(playerMatches, participant.player_id)
+        const pointsEarned = pointsSystem[furthestRound] || 0
+
+        // Update player's ranking points
+        if (pointsEarned > 0) {
+          const currentPlayer = await playersApi.getById(participant.player_id)
+          const currentRankingPoints = event.event_type === 'singles' 
+            ? currentPlayer.singles_ranking_points || 0
+            : currentPlayer.doubles_ranking_points || 0
+
+          // Simple ranking calculation: average of recent results (you may want to refine this)
+          const newRankingPoints = (currentRankingPoints + pointsEarned) / 2
+
+          const updateData = event.event_type === 'singles' 
+            ? { 
+                singles_ranking_points: newRankingPoints,
+                total_singles_points: (currentPlayer.total_singles_points || 0) + pointsEarned,
+                singles_events_played: (currentPlayer.singles_events_played || 0) + 1
+              }
+            : { 
+                doubles_ranking_points: newRankingPoints,
+                total_doubles_points: (currentPlayer.total_doubles_points || 0) + pointsEarned,
+                doubles_events_played: (currentPlayer.doubles_events_played || 0) + 1
+              }
+
+          await playersApi.update(participant.player_id, updateData)
+        }
+      }
+
+      // Update event status to completed
+      await eventsApi.update(event.id, { status: 'completed' })
+
+      setMessage('✅ Event completed successfully! Points have been awarded to all players.')
+      onUpdate()
+    } catch (error) {
+      console.error('Error completing event:', error)
+      setMessage(`❌ Error completing event: ${error.message}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Helper function to calculate the furthest round a player reached
+  const calculateFurthestRound = (playerMatches, playerId) => {
+    const roundOrder = {
+      'Round of 32': 1, 'round_32': 1,
+      'Round of 16': 2, 'round_16': 2,
+      'Quarter-Final': 3, 'quarter_final': 3,
+      'Semi-Final': 4, 'semi_final': 4,
+      'Final': 5, 'runner_up': 5,
+      'Winner': 6, 'winner': 6
+    }
+
+    let furthestRound = 'round_32' // Default to first round
+    let maxRoundOrder = 0
+
+    for (const match of playerMatches) {
+      const roundName = match.round_name?.toLowerCase().replace(/[^a-z0-9]/g, '_')
+      const roundOrderValue = roundOrder[roundName] || roundOrder[match.round_name] || 1
+
+      // If player won this match, they advanced to the next round
+      if (match.winner_id === playerId && roundOrderValue > maxRoundOrder) {
+        maxRoundOrder = roundOrderValue
+        
+        // Determine the achievement based on round
+        if (match.round_name === 'Final') {
+          furthestRound = 'winner'
+        } else if (match.round_name === 'Semi-Final') {
+          furthestRound = 'runner_up' // If they won semi, they reached final (runner_up minimum)
+        } else if (match.round_name === 'Quarter-Final') {
+          furthestRound = 'semi_final'
+        } else if (match.round_name === 'Round of 16') {
+          furthestRound = 'quarter_final'
+        } else if (match.round_name === 'Round of 32') {
+          furthestRound = 'round_16'
+        }
+      }
+    }
+
+    return furthestRound
+  }
+
+  // Load matches when component mounts or tournament changes
+  useEffect(() => {
+    if (tournament?.events) {
+      tournament.events.forEach(event => {
+        if (event.status === 'draw_created' || event.status === 'in_progress') {
+          loadEventMatches(event.id)
+        }
+      })
+    }
+  }, [tournament])
 
   return (
     <div>
@@ -445,15 +585,54 @@ function TournamentDetails({ tournament, players, onUpdate }) {
             <h5 style={{ margin: 0 }}>
               {event.event_type.charAt(0).toUpperCase() + event.event_type.slice(1)} Event
             </h5>
-            <span style={{
-              padding: '4px 8px',
-              borderRadius: '4px',
-              fontSize: '0.8em',
-              backgroundColor: getStatusColor(event.status),
-              color: 'white'
-            }}>
-              {event.status}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{
+                padding: '4px 8px',
+                borderRadius: '4px',
+                fontSize: '0.8em',
+                backgroundColor: getStatusColor(event.status),
+                color: 'white'
+              }}>
+                {event.status}
+              </span>
+              
+              {/* Complete Event Button */}
+              {(event.status === 'draw_created' || event.status === 'in_progress') && (
+                <button
+                  onClick={() => completeEvent(event)}
+                  disabled={loading || !canCompleteEvent(event.id)}
+                  style={{
+                    padding: '4px 8px',
+                    backgroundColor: canCompleteEvent(event.id) ? '#28a745' : '#6c757d',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: canCompleteEvent(event.id) && !loading ? 'pointer' : 'not-allowed',
+                    fontSize: '0.8em',
+                    opacity: canCompleteEvent(event.id) && !loading ? 1 : 0.6,
+                    transition: 'all 0.3s ease'
+                  }}
+                  title={canCompleteEvent(event.id) ? 'Complete event and award points' : 'Some matches are still in progress'}
+                >
+                  {loading ? 'Completing...' : 'Complete Event'}
+                </button>
+              )}
+              
+              {/* Show completed status */}
+              {event.status === 'completed' && (
+                <span style={{
+                  padding: '4px 8px',
+                  backgroundColor: '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontSize: '0.8em',
+                  opacity: 0.8
+                }}>
+                  ✅ Event Completed
+                </span>
+              )}
+            </div>
           </div>
 
           <p><strong>Participants:</strong> {event.event_participants?.length || 0} / {event.max_participants}</p>
