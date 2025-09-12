@@ -749,9 +749,25 @@ function EventDetails({ event }) {
                   </span>
                 )}
               </div>
+              {participant.player && (
+                <div className="participant-rank">
+                  Rank: {event.event_type === 'singles' 
+                    ? participant.player.singles_ranking_points?.toFixed(2) || '0.00'
+                    : participant.player.doubles_ranking_points?.toFixed(2) || '0.00'
+                  } pts
+                </div>
+              )}
               {participant.partner && (
                 <div className="participant-partner">
                   Partner: {participant.partner.name}
+                  {participant.partner && (
+                    <span className="participant-partner-rank">
+                      ({event.event_type === 'doubles' 
+                        ? participant.partner.doubles_ranking_points?.toFixed(2) || '0.00'
+                        : participant.partner.singles_ranking_points?.toFixed(2) || '0.00'
+                      } pts)
+                    </span>
+                  )}
                 </div>
               )}
               <div className="participant-status">
