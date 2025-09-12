@@ -133,6 +133,59 @@ body {
     color: var(--text-primary);
 }
 
+/* Event Details / Participants Styles */
+.event-details {
+    margin-top: 15px;
+    padding: 10px;
+    background-color: var(--bg-primary);
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+}
+
+.event-details h6 {
+    color: var(--text-primary);
+    margin: 0 0 10px 0;
+}
+
+.participants-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+}
+
+.participant-card {
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background-color: var(--bg-secondary);
+}
+
+.participant-name {
+    font-weight: bold;
+    color: var(--text-primary);
+}
+
+.participant-seed {
+    margin-left: 5px;
+    font-size: 0.8em;
+    color: var(--text-secondary);
+}
+
+.participant-partner {
+    font-size: 0.9em;
+    color: var(--text-secondary);
+}
+
+.participant-status {
+    font-size: 0.8em;
+    color: var(--text-muted);
+}
+
+.no-participants {
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
 .legend-items {
     display: flex;
     gap: 20px;
@@ -292,7 +345,7 @@ body {
 .match-number {
     font-size: 0.9em;
     font-weight: bold;
-    color: #495057;
+    color: var(--text-primary);
 }
 
 .status-badge {
@@ -607,7 +660,7 @@ body {
 }
 
 .player-name.loser {
-    color: #6c757d;
+    color: var(--text-secondary);
     text-decoration: line-through;
 }
 

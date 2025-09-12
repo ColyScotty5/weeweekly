@@ -343,7 +343,7 @@ function MatchCard({ match, matchIndex, roundIndex, eventType, onUpdate, onClick
         <span className="match-number">
           Match {match.match_number}
           {match.bracket_position !== undefined && (
-            <span style={{ fontSize: '0.7em', color: '#666', marginLeft: '8px' }}>
+            <span style={{ fontSize: '0.7em', color: 'var(--text-secondary)', marginLeft: '8px' }}>
               (Pos {match.bracket_position + 1})
             </span>
           )}

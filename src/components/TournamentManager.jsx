@@ -499,38 +499,33 @@ function TournamentDetails({ tournament, players, onUpdate }) {
 
 function EventDetails({ event }) {
   return (
-    <div style={{ marginTop: '15px', padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
+    <div className="event-details">
       <h6>Participants:</h6>
       {event.event_participants?.length > 0 ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
+        <div className="participants-grid">
           {event.event_participants.map(participant => (
-            <div key={participant.id} style={{
-              padding: '8px',
-              border: '1px solid #ddd',
-              borderRadius: '4px',
-              backgroundColor: 'white'
-            }}>
-              <div style={{ fontWeight: 'bold' }}>
+            <div key={participant.id} className="participant-card">
+              <div className="participant-name">
                 {participant.player?.name}
                 {participant.seed_position && (
-                  <span style={{ marginLeft: '5px', fontSize: '0.8em', color: '#666' }}>
+                  <span className="participant-seed">
                     (Seed {participant.seed_position})
                   </span>
                 )}
               </div>
               {participant.partner && (
-                <div style={{ fontSize: '0.9em', color: '#666' }}>
+                <div className="participant-partner">
                   Partner: {participant.partner.name}
                 </div>
               )}
-              <div style={{ fontSize: '0.8em', color: '#999' }}>
+              <div className="participant-status">
                 Status: {participant.status}
               </div>
             </div>
           ))}
         </div>
       ) : (
-        <p style={{ color: '#666', fontStyle: 'italic' }}>No participants registered yet</p>
+        <p className="no-participants">No participants registered yet</p>
       )}
     </div>
   )
