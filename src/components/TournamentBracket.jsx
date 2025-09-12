@@ -42,11 +42,22 @@ export default function TournamentBracket({ event, onMatchUpdate }) {
   const matchesByRound = groupMatchesByRound(matches)
   const rounds = Object.keys(matchesByRound).sort((a, b) => getRoundOrder(a) - getRoundOrder(b))
 
+  // Calculate bracket container height based on first round matches
+  const calculateBracketHeight = () => {
+    const firstRoundMatches = rounds.length > 0 ? matchesByRound[rounds[0]]?.length || 0 : 0
+    const matchHeight = 140
+    const matchGap = 40
+    const baseOffset = 20
+    const headerHeight = 80 // Approximate header height
+    
+    return headerHeight + baseOffset * 2 + (firstRoundMatches * matchHeight) + ((firstRoundMatches - 1) * matchGap) + 100 // Extra padding
+  }
+
   return (
     <div className="tournament-bracket">
       <h3>Tournament Bracket - {event.event_type?.charAt(0).toUpperCase() + event.event_type?.slice(1)}</h3>
       
-      <div className="bracket-container">
+      <div className="bracket-container" style={{ minHeight: `${calculateBracketHeight()}px` }}>
         <BracketLines matches={matches} rounds={rounds} />
         {rounds.map((round, roundIndex) => (
           <RoundColumn
@@ -60,6 +71,8 @@ export default function TournamentBracket({ event, onMatchUpdate }) {
               setSelectedMatch(match)
               setShowDialog(true)
             }}
+            allRounds={rounds}
+            allMatches={matchesByRound}
           />
         ))}
       </div>
@@ -186,24 +199,75 @@ export default function TournamentBracket({ event, onMatchUpdate }) {
   )
 }
 
-function RoundColumn({ round, roundIndex, matches, eventType, onMatchUpdate, onMatchClick }) {
+function RoundColumn({ round, roundIndex, matches, eventType, onMatchUpdate, onMatchClick, allRounds, allMatches }) {
+  // Calculate positions for matches in this round based on tournament bracket logic
+  const calculateMatchPositions = () => {
+    const positions = []
+    const matchHeight = 140 // Base match card height
+    const matchGap = 40 // Gap between matches in first round
+    const baseOffset = 20 // Base padding offset
+    
+    matches.forEach((match, matchIndex) => {
+      let topPosition
+      
+      if (roundIndex === 0) {
+        // First round: evenly spaced
+        topPosition = baseOffset + matchIndex * (matchHeight + matchGap)
+      } else {
+        // Later rounds: position between corresponding previous round matches
+        // Each match in this round represents the winner of 2^roundIndex previous round matches
+        const matchesPerCurrentMatch = Math.pow(2, roundIndex)
+        const firstPrevMatchIndex = matchIndex * matchesPerCurrentMatch
+        const lastPrevMatchIndex = firstPrevMatchIndex + matchesPerCurrentMatch - 1
+        
+        // Calculate the center point between the first and last corresponding matches
+        const firstMatchTop = baseOffset + firstPrevMatchIndex * (matchHeight + matchGap)
+        const lastMatchTop = baseOffset + lastPrevMatchIndex * (matchHeight + matchGap)
+        
+        // Position this match at the center point between the corresponding previous matches
+        topPosition = firstMatchTop + ((lastMatchTop - firstMatchTop) / 2)
+      }
+      
+      positions.push(topPosition)
+    })
+    
+    return positions
+  }
+  
+  const matchPositions = calculateMatchPositions()
+  
+  // Calculate the height needed for this round
+  const calculateRoundHeight = () => {
+    if (matchPositions.length === 0) return 600
+    const maxPosition = Math.max(...matchPositions)
+    return Math.max(600, maxPosition + 200) // Add padding for the last match
+  }
+  
   return (
     <div className="round-column">
       <h4 className="round-header">
         {round}
       </h4>
       
-      <div className="matches-column">
+      <div className="matches-column" style={{ position: 'relative', minHeight: `${calculateRoundHeight()}px` }}>
         {matches.map((match, matchIndex) => (
-          <MatchCard
+          <div
             key={match.id}
-            match={match}
-            matchIndex={matchIndex}
-            roundIndex={roundIndex}
-            eventType={eventType}
-            onUpdate={onMatchUpdate}
-            onClick={() => onMatchClick(match)}
-          />
+            style={{
+              position: 'absolute',
+              top: `${matchPositions[matchIndex]}px`,
+              width: '100%'
+            }}
+          >
+            <MatchCard
+              match={match}
+              matchIndex={matchIndex}
+              roundIndex={roundIndex}
+              eventType={eventType}
+              onUpdate={onMatchUpdate}
+              onClick={() => onMatchClick(match)}
+            />
+          </div>
         ))}
       </div>
     </div>
