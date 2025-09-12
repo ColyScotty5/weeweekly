@@ -75,8 +75,13 @@ export default function TournamentBracket({ event, onMatchUpdate }) {
             roundIndex={roundIndex}
             matches={matchesByRound[round]}
             eventType={event.event_type}
+            eventStatus={event.status}
             onMatchUpdate={onMatchUpdate}
             onMatchClick={(match) => {
+              // Disable match editing for completed events
+              if (event.status === 'completed') {
+                return
+              }
               setSelectedMatch(match)
               setShowDialog(true)
             }}
@@ -189,7 +194,7 @@ export default function TournamentBracket({ event, onMatchUpdate }) {
   )
 }
 
-function RoundColumn({ round, roundIndex, matches, eventType, onMatchUpdate, onMatchClick, allRounds, allMatches }) {
+function RoundColumn({ round, roundIndex, matches, eventType, eventStatus, onMatchUpdate, onMatchClick, allRounds, allMatches }) {
   // Calculate positions for matches in this round based on tournament bracket logic
   const calculateMatchPositions = () => {
     const positions = []
@@ -266,6 +271,7 @@ function RoundColumn({ round, roundIndex, matches, eventType, onMatchUpdate, onM
               matchIndex={matchIndex}
               roundIndex={roundIndex}
               eventType={eventType}
+              eventStatus={eventStatus}
               onUpdate={onMatchUpdate}
               onClick={() => onMatchClick(match)}
             />
@@ -276,7 +282,7 @@ function RoundColumn({ round, roundIndex, matches, eventType, onMatchUpdate, onM
   )
 }
 
-function MatchCard({ match, matchIndex, roundIndex, eventType, onUpdate, onClick }) {
+function MatchCard({ match, matchIndex, roundIndex, eventType, eventStatus, onUpdate, onClick }) {
   const getPlayerDisplay = (player, partner = null) => {
     if (!player) return 'TBD'
     return partner ? `${player.name} / ${partner.name}` : player.name
@@ -316,10 +322,14 @@ function MatchCard({ match, matchIndex, roundIndex, eventType, onUpdate, onClick
 
   return (
     <div 
-      className="match-card clickable" 
+      className={`match-card ${eventStatus !== 'completed' ? 'clickable' : 'completed'}`}
       data-round={roundIndex} 
       data-match={matchIndex}
-      onClick={onClick}
+      onClick={eventStatus !== 'completed' ? onClick : undefined}
+      style={{
+        cursor: eventStatus === 'completed' ? 'default' : 'pointer',
+        opacity: eventStatus === 'completed' ? 0.8 : 1
+      }}
     >
       {/* Seed badges */}
       {match.player1?.seed_position && (
