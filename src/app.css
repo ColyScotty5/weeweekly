@@ -67,11 +67,9 @@ body {
 }
 
 .matches-column {
-    display: flex;
-    flex-direction: column;
-    gap: 40px;
     position: relative;
     padding: 20px 0;
+    /* Removed flex layout to support absolute positioning */
 }
 
 .match-card {
