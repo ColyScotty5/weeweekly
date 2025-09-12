@@ -378,15 +378,29 @@ function MatchDialog({ match, eventType, onClose, onSave }) {
   const [winnerId, setWinnerId] = useState(match.winner_id || '')
   const [player1Score, setPlayer1Score] = useState('')
   const [player2Score, setPlayer2Score] = useState('')
+  const [player1TiebreakScore, setPlayer1TiebreakScore] = useState('')
+  const [player2TiebreakScore, setPlayer2TiebreakScore] = useState('')
   const [loading, setLoading] = useState(false)
 
   // Parse existing score if available
   useEffect(() => {
     if (match.score) {
-      const scoreParts = match.score.split('-')
-      if (scoreParts.length === 2) {
-        setPlayer1Score(scoreParts[0].trim())
-        setPlayer2Score(scoreParts[1].trim())
+      // Check if there's a tie-breaker score in format "7-6 (7-5)"
+      const tiebreakMatch = match.score.match(/^(\d+)-(\d+)\s*\((\d+)-(\d+)\)$/)
+      if (tiebreakMatch) {
+        setPlayer1Score(tiebreakMatch[1])
+        setPlayer2Score(tiebreakMatch[2])
+        setPlayer1TiebreakScore(tiebreakMatch[3])
+        setPlayer2TiebreakScore(tiebreakMatch[4])
+      } else {
+        // Regular score format "6-4"
+        const scoreParts = match.score.split('-')
+        if (scoreParts.length === 2) {
+          setPlayer1Score(scoreParts[0].trim())
+          setPlayer2Score(scoreParts[1].trim())
+          setPlayer1TiebreakScore('')
+          setPlayer2TiebreakScore('')
+        }
       }
     }
   }, [match.score])
@@ -408,13 +422,24 @@ function MatchDialog({ match, eventType, onClose, onSave }) {
         matchId: match.id
       })
 
+      // Format score with tie-breaker if applicable
+      let formattedScore = null
+      if (status === 'completed' && player1Score && player2Score) {
+        const hasTiebreaker = ((player1Score === '7' && player2Score === '6') || (player1Score === '6' && player2Score === '7')) 
+                             && player1TiebreakScore && player2TiebreakScore
+        
+        if (hasTiebreaker) {
+          formattedScore = `${player1Score}-${player2Score} (${player1TiebreakScore}-${player2TiebreakScore})`
+        } else {
+          formattedScore = `${player1Score}-${player2Score}`
+        }
+      }
+
       const updatedMatch = {
         ...match,
         status,
         winner_id: status === 'completed' || status === 'walkover' ? winnerId : null,
-        score: status === 'completed' && player1Score && player2Score 
-          ? `${player1Score}-${player2Score}` 
-          : null
+        score: formattedScore
       }
 
       console.log('Calling onSave with updatedMatch:', updatedMatch)
@@ -429,7 +454,30 @@ function MatchDialog({ match, eventType, onClose, onSave }) {
 
   const isFormValid = () => {
     if (status === 'completed') {
-      return winnerId && player1Score && player2Score
+      if (!winnerId || !player1Score || !player2Score) {
+        return false
+      }
+      
+      // Check tie-breaker validation for 7-6 scores
+      const isTiebreakSet = (player1Score === '7' && player2Score === '6') || (player1Score === '6' && player2Score === '7')
+      if (isTiebreakSet) {
+        if (!player1TiebreakScore || !player2TiebreakScore) {
+          return false
+        }
+        
+        const tb1 = parseInt(player1TiebreakScore)
+        const tb2 = parseInt(player2TiebreakScore)
+        
+        // Validate tie-breaker rules: winner must have at least 7 and lead by at least 2
+        const maxScore = Math.max(tb1, tb2)
+        const minScore = Math.min(tb1, tb2)
+        
+        if (maxScore < 7 || (maxScore - minScore) < 2) {
+          return false
+        }
+      }
+      
+      return true
     }
     if (status === 'walkover') {
       return winnerId
@@ -526,6 +574,37 @@ function MatchDialog({ match, eventType, onClose, onSave }) {
               <div style={{ fontSize: '0.8em', color: '#666', marginTop: '4px' }}>
                 Enter games won by each player/team
               </div>
+              
+              {/* Tie-breaker inputs - show when score is 7-6 or 6-7 */}
+              {((player1Score === '7' && player2Score === '6') || (player1Score === '6' && player2Score === '7')) && (
+                <div style={{ marginTop: '15px' }}>
+                  <label className="form-label">Tie-breaker Score</label>
+                  <div className="score-input-group">
+                    <input
+                      type="number"
+                      className="form-input score-input"
+                      placeholder="0"
+                      min="0"
+                      max="20"
+                      value={player1TiebreakScore}
+                      onChange={(e) => setPlayer1TiebreakScore(e.target.value)}
+                    />
+                    <span style={{ fontWeight: 'bold', fontSize: '1.2em' }}>-</span>
+                    <input
+                      type="number"
+                      className="form-input score-input"
+                      placeholder="0"
+                      min="0"
+                      max="20"
+                      value={player2TiebreakScore}
+                      onChange={(e) => setPlayer2TiebreakScore(e.target.value)}
+                    />
+                  </div>
+                  <div style={{ fontSize: '0.8em', color: '#666', marginTop: '4px' }}>
+                    Enter tie-breaker points (winner must have at least 7 and lead by 2)
+                  </div>
+                </div>
+              )}
             </div>
           </>
         )}
