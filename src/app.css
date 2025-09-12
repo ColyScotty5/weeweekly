@@ -200,6 +200,20 @@ body {
     color: var(--text-secondary);
 }
 
+.participant-rank {
+    font-size: 0.85em;
+    color: var(--accent-primary);
+    font-weight: 500;
+    margin-top: 2px;
+}
+
+.participant-partner-rank {
+    font-size: 0.8em;
+    color: var(--text-secondary);
+    font-weight: normal;
+    margin-left: 4px;
+}
+
 .participant-status {
     font-size: 0.8em;
     color: var(--text-muted);
