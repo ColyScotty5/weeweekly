@@ -93,7 +93,7 @@ export default function TournamentManager() {
   }
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ padding: '20px', margin: '0 auto' }}>
       <h2>Tournament Manager</h2>
 
       {message && (
@@ -132,7 +132,7 @@ export default function TournamentManager() {
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '20px' }}>
-        <div>
+        <div className="tournament-card">
           <h3>Tournaments</h3>
           <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
             {tournaments.map(tournament => (
@@ -160,7 +160,7 @@ export default function TournamentManager() {
           </div>
         </div>
 
-        <div>
+        <div className="tournament-card">
           {selectedTournament ? (
             <TournamentDetails
               tournament={selectedTournament}
