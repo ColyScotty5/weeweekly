@@ -95,6 +95,9 @@ body {
     cursor: pointer;
     background-color: var(--bg-primary);
     transition: all 0.3s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .tournament-item:hover {
@@ -104,6 +107,10 @@ body {
 .tournament-item.selected {
     background-color: var(--accent-secondary);
     border-color: var(--accent-primary);
+}
+
+.tournament-item-content {
+    flex: 1;
 }
 
 .tournament-item-title {
@@ -119,6 +126,23 @@ body {
 .tournament-item-status {
     font-size: 0.8em;
     color: var(--text-muted);
+}
+
+.tournament-delete-btn {
+    background: none;
+    border: none;
+    font-size: 1.2em;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+    opacity: 0.6;
+}
+
+.tournament-delete-btn:hover {
+    opacity: 1;
+    background-color: var(--danger);
+    transform: scale(1.1);
 }
 
 /* Legend Styles */
@@ -241,6 +265,127 @@ body {
     height: 2px;
     background-color: var(--accent-primary);
     opacity: 0.6;
+}
+
+/* Delete Modal Styles */
+.delete-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.delete-modal {
+    background-color: var(--bg-secondary);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px var(--shadow);
+    max-width: 500px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+}
+
+.delete-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.delete-modal-title {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.delete-modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.delete-modal-close:hover {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+.delete-modal-content {
+    padding: 24px;
+    text-align: center;
+}
+
+.delete-warning-icon {
+    font-size: 3rem;
+    margin-bottom: 16px;
+}
+
+.delete-warning-text {
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    margin: 0 0 12px 0;
+}
+
+.delete-warning-subtext {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin: 0;
+    line-height: 1.5;
+}
+
+.delete-modal-actions {
+    display: flex;
+    gap: 12px;
+    padding: 16px 24px 24px;
+    justify-content: flex-end;
+}
+
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn-secondary {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background-color: var(--border-color);
+}
+
+.btn-danger {
+    background-color: var(--danger);
+    color: white;
+}
+
+.btn-danger:hover:not(:disabled) {
+    background-color: #c82333;
+    transform: translateY(-1px);
 }
 
 .main-wrapper {
