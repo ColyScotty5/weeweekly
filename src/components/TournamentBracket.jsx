@@ -46,7 +46,16 @@ export default function TournamentBracket({ event, onMatchUpdate }) {
   const calculateBracketHeight = () => {
     const firstRoundMatches = rounds.length > 0 ? matchesByRound[rounds[0]]?.length || 0 : 0
     const matchHeight = 140
-    const matchGap = 40
+    
+    // Use the same adaptive gap calculation as in RoundColumn
+    const calculateGap = (matchCount) => {
+      if (matchCount <= 4) return 80
+      if (matchCount <= 8) return 60
+      if (matchCount <= 16) return 40
+      return 30
+    }
+    
+    const matchGap = calculateGap(firstRoundMatches)
     const baseOffset = 20
     const headerHeight = 80 // Approximate header height
     
@@ -204,14 +213,25 @@ function RoundColumn({ round, roundIndex, matches, eventType, onMatchUpdate, onM
   const calculateMatchPositions = () => {
     const positions = []
     const matchHeight = 140 // Base match card height
-    const matchGap = 40 // Gap between matches in first round
+    
+    // Calculate adaptive spacing based on number of matches in first round
+    const firstRoundMatchCount = allRounds.length > 0 ? allMatches[allRounds[0]]?.length || 0 : matches.length
+    const calculateGap = (matchCount) => {
+      // Adaptive gap: more matches = smaller gap, but minimum for readability
+      if (matchCount <= 4) return 80  // Large gap for small tournaments
+      if (matchCount <= 8) return 60  // Medium gap
+      if (matchCount <= 16) return 40 // Smaller gap for larger tournaments
+      return 30 // Minimum gap for very large tournaments
+    }
+    
+    const matchGap = roundIndex === 0 ? calculateGap(firstRoundMatchCount) : calculateGap(firstRoundMatchCount)
     const baseOffset = 20 // Base padding offset
     
     matches.forEach((match, matchIndex) => {
       let topPosition
       
       if (roundIndex === 0) {
-        // First round: evenly spaced
+        // First round: evenly spaced with adaptive gap
         topPosition = baseOffset + matchIndex * (matchHeight + matchGap)
       } else {
         // Later rounds: position between corresponding previous round matches
@@ -221,6 +241,7 @@ function RoundColumn({ round, roundIndex, matches, eventType, onMatchUpdate, onM
         const lastPrevMatchIndex = firstPrevMatchIndex + matchesPerCurrentMatch - 1
         
         // Calculate the center point between the first and last corresponding matches
+        // Use the same gap calculation for consistency
         const firstMatchTop = baseOffset + firstPrevMatchIndex * (matchHeight + matchGap)
         const lastMatchTop = baseOffset + lastPrevMatchIndex * (matchHeight + matchGap)
         
