@@ -10,6 +10,8 @@ export default function TournamentManager() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [showCreateForm, setShowCreateForm] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [tournamentToDelete, setTournamentToDelete] = useState(null)
 
   useEffect(() => {
     loadTournaments()
@@ -92,6 +94,41 @@ export default function TournamentManager() {
     }
   }
 
+  const handleDeleteTournament = (tournament, event) => {
+    event.stopPropagation() // Prevent tournament selection when clicking delete
+    setTournamentToDelete(tournament)
+    setShowDeleteModal(true)
+  }
+
+  const confirmDeleteTournament = async () => {
+    if (!tournamentToDelete) return
+    
+    setLoading(true)
+    try {
+      await tournamentsApi.delete(tournamentToDelete.id)
+      setMessage('✅ Tournament deleted successfully!')
+      
+      // Clear selected tournament if it was the one deleted
+      if (selectedTournament?.id === tournamentToDelete.id) {
+        setSelectedTournament(null)
+      }
+      
+      loadTournaments()
+      setShowDeleteModal(false)
+      setTournamentToDelete(null)
+    } catch (error) {
+      console.error('Error deleting tournament:', error)
+      setMessage(`❌ Error deleting tournament: ${error.message}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const cancelDeleteTournament = () => {
+    setShowDeleteModal(false)
+    setTournamentToDelete(null)
+  }
+
   return (
     <div style={{ padding: '20px', margin: '0 auto' }}>
       <h2>Tournament Manager</h2>
@@ -141,13 +178,23 @@ export default function TournamentManager() {
                 onClick={() => loadTournamentDetails(tournament.id)}
                 className={`tournament-item ${selectedTournament?.id === tournament.id ? 'selected' : ''}`}
               >
-                <div className="tournament-item-title">{tournament.name}</div>
-                <div className="tournament-item-date">
-                  {new Date(tournament.tournament_date + 'T12:00:00').toLocaleDateString()}
+                <div className="tournament-item-content">
+                  <div className="tournament-item-title">{tournament.name}</div>
+                  <div className="tournament-item-date">
+                    {new Date(tournament.tournament_date + 'T12:00:00').toLocaleDateString()}
+                  </div>
+                  <div className="tournament-item-status">
+                    Status: {tournament.status}
+                  </div>
                 </div>
-                <div className="tournament-item-status">
-                  Status: {tournament.status}
-                </div>
+                <button
+                  className="tournament-delete-btn"
+                  onClick={(e) => handleDeleteTournament(tournament, e)}
+                  title="Delete Tournament"
+                  aria-label={`Delete ${tournament.name}`}
+                >
+                  🗑️
+                </button>
               </div>
             ))}
           </div>
@@ -167,6 +214,16 @@ export default function TournamentManager() {
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && tournamentToDelete && (
+        <DeleteConfirmationModal
+          tournament={tournamentToDelete}
+          onConfirm={confirmDeleteTournament}
+          onCancel={cancelDeleteTournament}
+          loading={loading}
+        />
+      )}
     </div>
   )
 }
@@ -631,6 +688,48 @@ function RegistrationManager({ event, players, onClose, onUpdate }) {
       >
         {loading ? 'Registering...' : `Register ${selectedPlayers.length} Player(s)`}
       </button>
+    </div>
+  )
+}
+
+function DeleteConfirmationModal({ tournament, onConfirm, onCancel, loading }) {
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onCancel()
+    }
+  }
+
+  return (
+    <div className="delete-modal-overlay" onClick={handleOverlayClick}>
+      <div className="delete-modal">
+        <div className="delete-modal-header">
+          <h3 className="delete-modal-title">Delete Tournament</h3>
+          <button className="delete-modal-close" onClick={onCancel}>×</button>
+        </div>
+
+        <div className="delete-modal-content">
+          <div className="delete-warning-icon">⚠️</div>
+          <p className="delete-warning-text">
+            Are you sure you want to delete the tournament <strong>"{tournament.name}"</strong>?
+          </p>
+          <p className="delete-warning-subtext">
+            This action cannot be undone. All associated events, matches, and participant data will be permanently removed.
+          </p>
+        </div>
+
+        <div className="delete-modal-actions">
+          <button className="btn btn-secondary" onClick={onCancel} disabled={loading}>
+            Cancel
+          </button>
+          <button 
+            className="btn btn-danger" 
+            onClick={onConfirm}
+            disabled={loading}
+          >
+            {loading ? 'Deleting...' : 'Delete Tournament'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
