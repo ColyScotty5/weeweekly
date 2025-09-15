@@ -2,6 +2,8 @@ import { useState, useEffect } from 'preact/hooks'
 import { tournamentsApi, eventsApi, playersApi, participantsApi, matchesApi } from '../lib/supabase.js'
 import { generateSinglesDraw, generateDoublesDraw, generateMatches, POINTS_SYSTEM } from '../lib/tournamentUtils.js'
 import TournamentBracket from './TournamentBracket.jsx'
+import Avatar from './Avatar.jsx'
+import { getUserAvatarByEmail } from '../contexts/AuthContext.jsx'
 
 export default function TournamentManager() {
   const [tournaments, setTournaments] = useState([])
@@ -710,13 +712,22 @@ function EventDetails({ event }) {
         <div className="participants-grid">
           {event.event_participants.map(participant => (
             <div key={participant.id} className="participant-card">
-              <div className="participant-name">
-                {participant.player?.name}
-                {participant.seed_position && (
-                  <span className="participant-seed">
-                    (Seed {participant.seed_position})
-                  </span>
-                )}
+              <div className="participant-header">
+                <Avatar 
+                  src={getUserAvatarByEmail(participant.player?.email)} 
+                  alt={participant.player?.name}
+                  size={40}
+                />
+                <div className="participant-info">
+                  <div className="participant-name">
+                    {participant.player?.name}
+                    {participant.seed_position && (
+                      <span className="participant-seed">
+                        (Seed {participant.seed_position})
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
               {participant.player && (
                 <div className="participant-rank">
@@ -728,15 +739,24 @@ function EventDetails({ event }) {
               )}
               {participant.partner && (
                 <div className="participant-partner">
-                  Partner: {participant.partner.name}
-                  {participant.partner && (
-                    <span className="participant-partner-rank">
-                      ({event.event_type === 'doubles' 
-                        ? participant.partner.doubles_ranking_points?.toFixed(2) || '0.00'
-                        : participant.partner.singles_ranking_points?.toFixed(2) || '0.00'
-                      } pts)
-                    </span>
-                  )}
+                  <div className="partner-header">
+                    <Avatar 
+                      src={getUserAvatarByEmail(participant.partner?.email)} 
+                      alt={participant.partner?.name}
+                      size={32}
+                    />
+                    <div className="partner-info">
+                      <span className="partner-name">Partner: {participant.partner.name}</span>
+                      {participant.partner && (
+                        <span className="participant-partner-rank">
+                          ({event.event_type === 'doubles' 
+                            ? participant.partner.doubles_ranking_points?.toFixed(2) || '0.00'
+                            : participant.partner.singles_ranking_points?.toFixed(2) || '0.00'
+                          } pts)
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
               <div className="participant-status">

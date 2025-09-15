@@ -1,6 +1,7 @@
 import { h } from 'preact';
 import { useState } from 'preact/hooks';
 import { useAuth } from '../contexts/AuthContext';
+import Avatar from './Avatar';
 
 const Profile = ({ onClose }) => {
   const { user, updateProfile } = useAuth();
@@ -234,33 +235,12 @@ const Profile = ({ onClose }) => {
             gap: '20px',
             marginBottom: '15px'
           }}>
-            <div style={{
-              width: '80px',
-              height: '80px',
-              borderRadius: '50%',
-              overflow: 'hidden',
-              backgroundColor: 'var(--background-color)',
-              border: '2px solid var(--border-color)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '32px',
-              color: 'var(--text-secondary)'
-            }}>
-              {avatar ? (
-                <img 
-                  src={avatar} 
-                  alt="Avatar" 
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover'
-                  }}
-                />
-              ) : (
-                <span>👤</span>
-              )}
-            </div>
+            <Avatar 
+              src={avatar} 
+              alt="Profile Avatar"
+              size={80}
+              style={{ border: '2px solid var(--border-color)' }}
+            />
             
             <div>
               <input

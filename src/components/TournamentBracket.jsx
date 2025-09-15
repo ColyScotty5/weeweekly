@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'preact/hooks'
 import { matchesApi } from '../lib/supabase.js'
 import { createNextRoundMatches } from '../lib/tournamentUtils.js'
+import Avatar from './Avatar.jsx'
+import { getUserAvatarByEmail } from '../contexts/AuthContext.jsx'
 
 export default function TournamentBracket({ event, onMatchUpdate }) {
   const [matches, setMatches] = useState([])
@@ -370,13 +372,24 @@ function MatchCard({ match, matchIndex, roundIndex, eventType, eventStatus, onUp
         backgroundColor: getMatchBackgroundColor(match.status, match.winner_id, match.player1_id)
       }}>
         <div className="player-info">
-          <div className={`player-name ${match.winner_id === match.player1_id ? 'winner' : ''} ${match.status === 'completed' && match.winner_id !== match.player1_id ? 'loser' : ''}`}>
-            {getPlayerDisplay(match.player1, match.player1_partner)}
-            {match.player1?.seed_position && (
-              <span style={{ marginLeft: '8px', fontSize: '0.8em', color: '#ff6b35', fontWeight: 'bold' }}>
-                (#{match.player1.seed_position})
-              </span>
+          <div className="player-header-bracket">
+            {match.player1 && (
+              <Avatar 
+                src={getUserAvatarByEmail(match.player1?.email)} 
+                alt={match.player1?.name}
+                size={28}
+              />
             )}
+            <div className="player-details">
+              <div className={`player-name ${match.winner_id === match.player1_id ? 'winner' : ''} ${match.status === 'completed' && match.winner_id !== match.player1_id ? 'loser' : ''}`}>
+                {getPlayerDisplay(match.player1, match.player1_partner)}
+                {match.player1?.seed_position && (
+                  <span style={{ marginLeft: '8px', fontSize: '0.8em', color: '#ff6b35', fontWeight: 'bold' }}>
+                    (#{match.player1.seed_position})
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
           {match.player1 && (
             <div className="player-ranking">
@@ -397,13 +410,24 @@ function MatchCard({ match, matchIndex, roundIndex, eventType, eventStatus, onUp
         backgroundColor: getMatchBackgroundColor(match.status, match.winner_id, match.player2_id)
       }}>
         <div className="player-info">
-          <div className={`player-name ${match.winner_id === match.player2_id ? 'winner' : ''} ${match.status === 'completed' && match.winner_id !== match.player2_id ? 'loser' : ''}`}>
-            {getPlayerDisplay(match.player2, match.player2_partner)}
-            {match.player2?.seed_position && (
-              <span style={{ marginLeft: '8px', fontSize: '0.8em', color: '#ff6b35', fontWeight: 'bold' }}>
-                (#{match.player2.seed_position})
-              </span>
+          <div className="player-header-bracket">
+            {match.player2 && (
+              <Avatar 
+                src={getUserAvatarByEmail(match.player2?.email)} 
+                alt={match.player2?.name}
+                size={28}
+              />
             )}
+            <div className="player-details">
+              <div className={`player-name ${match.winner_id === match.player2_id ? 'winner' : ''} ${match.status === 'completed' && match.winner_id !== match.player2_id ? 'loser' : ''}`}>
+                {getPlayerDisplay(match.player2, match.player2_partner)}
+                {match.player2?.seed_position && (
+                  <span style={{ marginLeft: '8px', fontSize: '0.8em', color: '#ff6b35', fontWeight: 'bold' }}>
+                    (#{match.player2.seed_position})
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
           {match.player2 && (
             <div className="player-ranking">
