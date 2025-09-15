@@ -152,6 +152,7 @@ export default function TournamentManager() {
       {showCreateForm && (
         <CreateTournamentForm
           onSubmit={createTournament}
+          onCancel={() => setShowCreateForm(false)}
           loading={loading}
         />
       )}
@@ -216,7 +217,7 @@ export default function TournamentManager() {
   )
 }
 
-function CreateTournamentForm({ onSubmit, loading }) {
+function CreateTournamentForm({ onSubmit, onCancel, loading }) {
   // Get today's date in local timezone
   const getLocalDateString = () => {
     const today = new Date()
@@ -248,26 +249,46 @@ function CreateTournamentForm({ onSubmit, loading }) {
     }}>
       <h3>Create New Tournament</h3>
       
-      <div style={{ marginBottom: '15px' }}>
-        <label style={{ display: 'block', marginBottom: '5px' }}>Tournament Name:</label>
-        <input
-          type="text"
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          required
-          style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-        />
-      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1em', marginBottom: '15px' }}>
+        <div>
+          <label style={{ display: 'block', marginBottom: '5px' }}>Tournament Name:</label>
+          <input
+            type="text"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            required
+            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+          />
+        </div>
 
-      <div style={{ marginBottom: '15px' }}>
-        <label style={{ display: 'block', marginBottom: '5px' }}>Date:</label>
-        <input
-          type="date"
-          value={formData.date}
-          onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-          required
-          style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-        />
+        <div>
+          <label style={{ display: 'block', marginBottom: '5px' }}>Date:</label>
+          <input
+            type="date"
+            value={formData.date}
+            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+            required
+            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+          />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', marginBottom: '5px' }}>Event Type:</label>
+          <select
+            value={formData.eventType}
+            onChange={(e) => setFormData({ ...formData, eventType: e.target.value })}
+            style={{ 
+              width: '100%', 
+              padding: '8px', 
+              borderRadius: '4px', 
+              border: '1px solid #ddd',
+              fontSize: '14px'
+            }}
+          >
+            <option value="singles">Singles</option>
+            <option value="doubles">Doubles</option>
+          </select>
+        </div>
       </div>
 
       <div style={{ marginBottom: '15px' }}>
@@ -280,39 +301,36 @@ function CreateTournamentForm({ onSubmit, loading }) {
         />
       </div>
 
-      <div style={{ marginBottom: '15px' }}>
-        <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9em' }}>Event Type:</label>
-        <select
-          value={formData.eventType}
-          onChange={(e) => setFormData({ ...formData, eventType: e.target.value })}
-          style={{ 
-            width: '100%', 
-            padding: '8px', 
-            borderRadius: '4px', 
-            border: '1px solid #ddd',
-            fontSize: '14px'
+      <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+        <button
+          type="submit"
+          disabled={loading}
+          style={{
+            padding: '10px 20px',
+            backgroundColor: '#28a745',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            opacity: loading ? 0.6 : 1
           }}
         >
-          <option value="singles">Singles</option>
-          <option value="doubles">Doubles</option>
-        </select>
+          {loading ? 'Creating...' : 'Create Tournament'}
+        </button>
+        
+        <a
+          onClick={onCancel}
+          style={{
+            color: '#6c757d',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            textDecoration: 'underline',
+            opacity: loading ? 0.6 : 1,
+            pointerEvents: loading ? 'none' : 'auto'
+          }}
+        >
+          Cancel
+        </a>
       </div>
-
-      <button
-        type="submit"
-        disabled={loading}
-        style={{
-          padding: '10px 20px',
-          backgroundColor: '#28a745',
-          color: 'white',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: loading ? 'not-allowed' : 'pointer',
-          opacity: loading ? 0.6 : 1
-        }}
-      >
-        {loading ? 'Creating...' : 'Create Tournament'}
-      </button>
     </form>
   )
 }
