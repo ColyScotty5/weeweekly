@@ -239,6 +239,7 @@ const Profile = ({ onClose }) => {
               src={avatar} 
               alt="Profile Avatar"
               size={80}
+              className="profile-avatar"
               style={{ border: '2px solid var(--border-color)' }}
             />
             
