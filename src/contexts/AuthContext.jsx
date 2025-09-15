@@ -136,6 +136,23 @@ export const AuthProvider = ({ children }) => {
         users[userIndex].password = updates.newPassword;
       }
 
+      // Handle email change
+      if (updates.newEmail) {
+        // Check if new email is already in use by another user
+        const emailExists = users.some(u => u.id !== user.id && u.email === updates.newEmail);
+        if (emailExists) {
+          throw new Error('Email address is already in use');
+        }
+        
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(updates.newEmail)) {
+          throw new Error('Please enter a valid email address');
+        }
+        
+        users[userIndex].email = updates.newEmail;
+      }
+
       // Handle avatar update
       if (updates.hasOwnProperty('avatar')) {
         users[userIndex].avatar = updates.avatar;
