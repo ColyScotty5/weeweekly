@@ -49,10 +49,15 @@ export default function TournamentManager() {
       const formattedDate = localDate.toISOString().split('T')[0]
       
       const tournament = await tournamentsApi.create({
-        name: tournamentData.name,
+        name: 'Temporary Name', // Will be updated with proper name after creation
         tournament_date: formattedDate,
         description: tournamentData.description,
         status: 'upcoming'
+      })
+
+      // Update tournament with proper name using the actual ID
+      await tournamentsApi.update(tournament.id, {
+        name: `Wee Weekly (${tournament.id})`
       })
 
       // Create event for the tournament
@@ -136,9 +141,8 @@ export default function TournamentManager() {
       const localDate = new Date(tournamentData.date + 'T12:00:00')
       const formattedDate = localDate.toISOString().split('T')[0]
       
-      // Update tournament basic info
+      // Update tournament basic info (name is auto-generated, so we don't update it)
       await tournamentsApi.update(tournamentToEdit.id, {
-        name: tournamentData.name,
         tournament_date: formattedDate,
         description: tournamentData.description
       })
@@ -233,9 +237,6 @@ export default function TournamentManager() {
                   <div className="tournament-item-date">
                     {new Date(tournament.tournament_date + 'T12:00:00').toLocaleDateString()}
                   </div>
-                  <div className="tournament-item-status">
-                    Status: {tournament.status}
-                  </div>
                 </div>
                 <div className="tournament-actions">
                   <button
@@ -309,7 +310,6 @@ function CreateTournamentForm({ onSubmit, onCancel, loading }) {
   }
 
   const [formData, setFormData] = useState({
-    name: '',
     date: getLocalDateString(),
     description: '',
     eventType: 'singles'
@@ -330,47 +330,36 @@ function CreateTournamentForm({ onSubmit, onCancel, loading }) {
     }}>
       <h3>Create New Tournament</h3>
       
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1em', marginBottom: '15px' }}>
-        <div>
-          <label style={{ display: 'block', marginBottom: '5px' }}>Tournament Name:</label>
-          <input
-            type="text"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            required
-            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-          />
-        </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1em', marginBottom: '15px' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px' }}>Date:</label>
+              <input
+                type="date"
+                value={formData.date}
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                required
+                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+              />
+            </div>
 
-        <div>
-          <label style={{ display: 'block', marginBottom: '5px' }}>Date:</label>
-          <input
-            type="date"
-            value={formData.date}
-            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-            required
-            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-          />
-        </div>
-
-        <div>
-          <label style={{ display: 'block', marginBottom: '5px' }}>Event Type:</label>
-          <select
-            value={formData.eventType}
-            onChange={(e) => setFormData({ ...formData, eventType: e.target.value })}
-            style={{ 
-              width: '100%', 
-              padding: '8px', 
-              borderRadius: '4px', 
-              border: '1px solid #ddd',
-              fontSize: '14px'
-            }}
-          >
-            <option value="singles">Singles</option>
-            <option value="doubles">Doubles</option>
-          </select>
-        </div>
-      </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px' }}>Event Type:</label>
+              <select
+                value={formData.eventType}
+                onChange={(e) => setFormData({ ...formData, eventType: e.target.value })}
+                style={{ 
+                  width: '100%', 
+                  padding: '8px', 
+                  borderRadius: '4px', 
+                  border: '1px solid #ddd',
+                  fontSize: '14px'
+                }}
+              >
+                <option value="singles">Singles</option>
+                <option value="doubles">Doubles</option>
+              </select>
+            </div>
+          </div>
 
       <div style={{ marginBottom: '15px' }}>
         <label style={{ display: 'block', marginBottom: '5px' }}>Description:</label>
@@ -608,7 +597,6 @@ function TournamentDetails({ tournament, players, onUpdate }) {
     <div>
       <h3>{tournament.name}</h3>
       <p><strong>Date:</strong> {new Date(tournament.tournament_date + 'T12:00:00').toLocaleDateString()}</p>
-      <p><strong>Status:</strong> {tournament.status}</p>
       {tournament.description && <p><strong>Description:</strong> {tournament.description}</p>}
 
       {message && (
@@ -1008,7 +996,6 @@ function EditTournamentModal({ tournament, onSave, onCancel, loading }) {
   }
 
   const [formData, setFormData] = useState({
-    name: tournament?.name || '',
     date: tournament?.tournament_date || getLocalDateString(),
     description: tournament?.description || '',
     eventType: tournament?.events?.[0]?.event_type || 'singles'
@@ -1081,18 +1068,12 @@ function EditTournamentModal({ tournament, onSave, onCancel, loading }) {
           borderRadius: '8px',
           backgroundColor: 'var(--background-color)'
         }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1em', marginBottom: '15px' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '5px' }}>Tournament Name:</label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-              />
-            </div>
-
+          <div style={{ marginBottom: '15px', padding: '10px', backgroundColor: 'var(--card-background)', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
+            <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px', color: 'var(--text-secondary)' }}>Tournament Name (Auto-generated):</label>
+            <div style={{ fontSize: '16px', fontWeight: '500', color: 'var(--text-color)' }}>{tournament?.name}</div>
+          </div>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1em', marginBottom: '15px' }}>
             <div>
               <label style={{ display: 'block', marginBottom: '5px' }}>Date:</label>
               <input
