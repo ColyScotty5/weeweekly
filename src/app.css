@@ -13,6 +13,12 @@
     --warning: #ffc107;
     --danger: #dc3545;
     --info: #17a2b8;
+    
+    /* Additional variables for auth components */
+    --background-color: var(--bg-primary);
+    --card-background: var(--bg-secondary);
+    --text-color: var(--text-primary);
+    --input-background: var(--bg-secondary);
 }
 
 [data-theme="dark"] {
@@ -29,6 +35,12 @@
     --warning: #ffd43b;
     --danger: #ff6b6b;
     --info: #22d3ee;
+    
+    /* Additional variables for auth components */
+    --background-color: var(--bg-primary);
+    --card-background: var(--bg-secondary);
+    --text-color: var(--text-primary);
+    --input-background: var(--bg-secondary);
 }
 
 body {
@@ -863,4 +875,10 @@ body {
     .winner-selection {
         grid-template-columns: 1fr;
     }
+}
+
+/* Loading spinner animation */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
