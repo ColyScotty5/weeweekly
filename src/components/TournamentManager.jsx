@@ -51,24 +51,12 @@ export default function TournamentManager() {
         status: 'upcoming'
       })
 
-      // Create events for the tournament
-      if (tournamentData.includeSingles) {
-        await eventsApi.create({
-          tournament_id: tournament.id,
-          event_type: 'singles',
-          max_participants: tournamentData.maxSinglesParticipants || 32,
-          status: 'registration'
-        })
-      }
-
-      if (tournamentData.includeDoubles) {
-        await eventsApi.create({
-          tournament_id: tournament.id,
-          event_type: 'doubles',
-          max_participants: tournamentData.maxDoublesParticipants || 32,
-          status: 'registration'
-        })
-      }
+      // Create event for the tournament
+      await eventsApi.create({
+        tournament_id: tournament.id,
+        event_type: tournamentData.eventType,
+        status: 'registration'
+      })
 
       setMessage('✅ Tournament created successfully!')
       setShowCreateForm(false)
@@ -242,10 +230,7 @@ function CreateTournamentForm({ onSubmit, loading }) {
     name: '',
     date: getLocalDateString(),
     description: '',
-    includeSingles: true,
-    includeDoubles: true,
-    maxSinglesParticipants: 32,
-    maxDoublesParticipants: 32
+    eventType: 'singles'
   })
 
   const handleSubmit = (e) => {
@@ -295,61 +280,27 @@ function CreateTournamentForm({ onSubmit, loading }) {
         />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px' }}>
-        <div>
-          <label style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
-            <input
-              type="checkbox"
-              checked={formData.includeSingles}
-              onChange={(e) => setFormData({ ...formData, includeSingles: e.target.checked })}
-              style={{ marginRight: '8px' }}
-            />
-            Include Singles Event
-          </label>
-          {formData.includeSingles && (
-            <div>
-              <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9em' }}>Max Participants:</label>
-              <input
-                type="number"
-                value={formData.maxSinglesParticipants}
-                onChange={(e) => setFormData({ ...formData, maxSinglesParticipants: parseInt(e.target.value) })}
-                min="4"
-                max="64"
-                style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #ddd' }}
-              />
-            </div>
-          )}
-        </div>
-
-        <div>
-          <label style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
-            <input
-              type="checkbox"
-              checked={formData.includeDoubles}
-              onChange={(e) => setFormData({ ...formData, includeDoubles: e.target.checked })}
-              style={{ marginRight: '8px' }}
-            />
-            Include Doubles Event
-          </label>
-          {formData.includeDoubles && (
-            <div>
-              <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9em' }}>Max Participants:</label>
-              <input
-                type="number"
-                value={formData.maxDoublesParticipants}
-                onChange={(e) => setFormData({ ...formData, maxDoublesParticipants: parseInt(e.target.value) })}
-                min="4"
-                max="64"
-                style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #ddd' }}
-              />
-            </div>
-          )}
-        </div>
+      <div style={{ marginBottom: '15px' }}>
+        <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9em' }}>Event Type:</label>
+        <select
+          value={formData.eventType}
+          onChange={(e) => setFormData({ ...formData, eventType: e.target.value })}
+          style={{ 
+            width: '100%', 
+            padding: '8px', 
+            borderRadius: '4px', 
+            border: '1px solid #ddd',
+            fontSize: '14px'
+          }}
+        >
+          <option value="singles">Singles</option>
+          <option value="doubles">Doubles</option>
+        </select>
       </div>
 
       <button
         type="submit"
-        disabled={loading || (!formData.includeSingles && !formData.includeDoubles)}
+        disabled={loading}
         style={{
           padding: '10px 20px',
           backgroundColor: '#28a745',
