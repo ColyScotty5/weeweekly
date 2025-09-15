@@ -109,7 +109,16 @@ export const tournamentsApi = {
   async getAll() {
     const { data, error } = await supabase
       .from('tournaments')
-      .select('*')
+      .select(`
+        *,
+        events (
+          *,
+          event_participants (
+            id,
+            player_id
+          )
+        )
+      `)
       .order('tournament_date', { ascending: false })
     
     if (error) throw error

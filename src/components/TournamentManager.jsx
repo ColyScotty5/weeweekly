@@ -233,7 +233,17 @@ export default function TournamentManager() {
                 className={`tournament-item ${selectedTournament?.id === tournament.id ? 'selected' : ''}`}
               >
                 <div className="tournament-item-content">
-                  <div className="tournament-item-title">{tournament.name}</div>
+                  <div className="tournament-item-title">
+                    {tournament.name}
+                    <span className="participant-count">
+                      {(() => {
+                        const totalParticipants = tournament.events?.reduce((total, event) => {
+                          return total + (event.event_participants?.length || 0)
+                        }, 0) || 0
+                        return ` (${totalParticipants} participant${totalParticipants !== 1 ? 's' : ''})`
+                      })()}
+                    </span>
+                  </div>
                   <div className="tournament-item-date">
                     {new Date(tournament.tournament_date + 'T12:00:00').toLocaleDateString()}
                   </div>
