@@ -40,6 +40,15 @@ const saveUsersToStorage = (users) => {
   localStorage.setItem('weeweekly_users', JSON.stringify(users));
 };
 
+// Helper function to get user avatar by email
+export const getUserAvatarByEmail = (email) => {
+  if (!email) return null;
+  
+  const users = getUsersFromStorage();
+  const user = users.find(u => u.email === email);
+  return user?.avatar || null;
+};
+
 const AuthContext = createContext();
 
 export const useAuth = () => {

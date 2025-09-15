@@ -9,6 +9,7 @@ ADD COLUMN IF NOT EXISTS singles_events_played INTEGER DEFAULT 0,
 ADD COLUMN IF NOT EXISTS doubles_events_played INTEGER DEFAULT 0,
 ADD COLUMN IF NOT EXISTS singles_ranking_points DECIMAL(10,2) DEFAULT 0.00,
 ADD COLUMN IF NOT EXISTS doubles_ranking_points DECIMAL(10,2) DEFAULT 0.00,
+ADD COLUMN IF NOT EXISTS email TEXT, -- Link to user profile by email
 ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
 ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
 
@@ -100,7 +101,11 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Add updated_at triggers
+-- Add updated_at triggers (drop and recreate to avoid conflicts)
+DROP TRIGGER IF EXISTS update_players_updated_at ON players;
+DROP TRIGGER IF EXISTS update_tournaments_updated_at ON tournaments;
+DROP TRIGGER IF EXISTS update_events_updated_at ON events;
+
 CREATE TRIGGER update_players_updated_at BEFORE UPDATE ON players FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_tournaments_updated_at BEFORE UPDATE ON tournaments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_events_updated_at BEFORE UPDATE ON events FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -111,6 +116,19 @@ ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE event_participants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE matches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE match_results ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies first (if they exist)
+DROP POLICY IF EXISTS "Enable read access for all users" ON tournaments;
+DROP POLICY IF EXISTS "Enable read access for all users" ON events;
+DROP POLICY IF EXISTS "Enable read access for all users" ON event_participants;
+DROP POLICY IF EXISTS "Enable read access for all users" ON matches;
+DROP POLICY IF EXISTS "Enable read access for all users" ON match_results;
+
+DROP POLICY IF EXISTS "Enable all operations for authenticated users" ON tournaments;
+DROP POLICY IF EXISTS "Enable all operations for authenticated users" ON events;
+DROP POLICY IF EXISTS "Enable all operations for authenticated users" ON event_participants;
+DROP POLICY IF EXISTS "Enable all operations for authenticated users" ON matches;
+DROP POLICY IF EXISTS "Enable all operations for authenticated users" ON match_results;
 
 -- Basic RLS policies (you may want to adjust these based on your authentication needs)
 CREATE POLICY "Enable read access for all users" ON tournaments FOR SELECT USING (true);

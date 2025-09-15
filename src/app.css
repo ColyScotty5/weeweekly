@@ -882,3 +882,74 @@ body {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+/* Avatar and participant styles */
+.participant-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.participant-info {
+    flex: 1;
+}
+
+.participant-name {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.participant-seed {
+    font-size: 0.85em;
+    color: var(--text-secondary);
+    margin-left: 6px;
+}
+
+.participant-partner {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-color);
+}
+
+.partner-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.partner-info {
+    flex: 1;
+}
+
+.partner-name {
+    font-size: 0.9em;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.participant-partner-rank {
+    font-size: 0.8em;
+    color: var(--text-muted);
+    margin-left: 4px;
+}
+
+.avatar {
+    transition: transform 0.2s ease;
+}
+
+.avatar:hover {
+    transform: scale(1.05);
+}
+
+/* Bracket-specific avatar styles */
+.player-header-bracket {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.player-details {
+    flex: 1;
+    min-width: 0; /* Allow text to truncate */
+}
