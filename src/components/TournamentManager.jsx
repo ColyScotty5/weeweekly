@@ -14,6 +14,8 @@ export default function TournamentManager() {
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [tournamentToDelete, setTournamentToDelete] = useState(null)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [tournamentToEdit, setTournamentToEdit] = useState(null)
 
   useEffect(() => {
     loadTournaments()
@@ -90,6 +92,12 @@ export default function TournamentManager() {
     setShowDeleteModal(true)
   }
 
+  const handleEditTournament = (tournament, event) => {
+    event.stopPropagation() // Prevent tournament selection when clicking edit
+    setTournamentToEdit(tournament)
+    setShowEditModal(true)
+  }
+
   const confirmDeleteTournament = async () => {
     if (!tournamentToDelete) return
     
@@ -117,6 +125,57 @@ export default function TournamentManager() {
   const cancelDeleteTournament = () => {
     setShowDeleteModal(false)
     setTournamentToDelete(null)
+  }
+
+  const updateTournament = async (tournamentData) => {
+    if (!tournamentToEdit) return
+    
+    setLoading(true)
+    try {
+      // Fix timezone issue by ensuring date is treated as local date
+      const localDate = new Date(tournamentData.date + 'T12:00:00')
+      const formattedDate = localDate.toISOString().split('T')[0]
+      
+      // Update tournament basic info
+      await tournamentsApi.update(tournamentToEdit.id, {
+        name: tournamentData.name,
+        tournament_date: formattedDate,
+        description: tournamentData.description
+      })
+
+      // Handle event type change if needed
+      if (tournamentData.eventType !== tournamentToEdit.events?.[0]?.event_type) {
+        // Get current events
+        const currentEvents = tournamentToEdit.events || []
+        
+        // Delete existing events
+        for (const event of currentEvents) {
+          await eventsApi.delete(event.id)
+        }
+        
+        // Create new event with the selected type
+        await eventsApi.create({
+          tournament_id: tournamentToEdit.id,
+          event_type: tournamentData.eventType,
+          status: 'registration'
+        })
+      }
+
+      setMessage('✅ Tournament updated successfully!')
+      setShowEditModal(false)
+      setTournamentToEdit(null)
+      loadTournaments()
+      
+      // Refresh selected tournament if it was the one being edited
+      if (selectedTournament?.id === tournamentToEdit.id) {
+        loadTournamentDetails(tournamentToEdit.id)
+      }
+    } catch (error) {
+      console.error('Error updating tournament:', error)
+      setMessage(`❌ Error updating tournament: ${error.message}`)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -178,14 +237,24 @@ export default function TournamentManager() {
                     Status: {tournament.status}
                   </div>
                 </div>
-                <button
-                  className="tournament-delete-btn"
-                  onClick={(e) => handleDeleteTournament(tournament, e)}
-                  title="Delete Tournament"
-                  aria-label={`Delete ${tournament.name}`}
-                >
-                  🗑️
-                </button>
+                <div className="tournament-actions">
+                  <button
+                    className="tournament-edit-btn"
+                    onClick={(e) => handleEditTournament(tournament, e)}
+                    title="Edit Tournament"
+                    aria-label={`Edit ${tournament.name}`}
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    className="tournament-delete-btn"
+                    onClick={(e) => handleDeleteTournament(tournament, e)}
+                    title="Delete Tournament"
+                    aria-label={`Delete ${tournament.name}`}
+                  >
+                    🗑️
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -212,6 +281,16 @@ export default function TournamentManager() {
           tournament={tournamentToDelete}
           onConfirm={confirmDeleteTournament}
           onCancel={cancelDeleteTournament}
+          loading={loading}
+        />
+      )}
+
+      {/* Edit Tournament Modal */}
+      {showEditModal && tournamentToEdit && (
+        <EditTournamentModal
+          tournament={tournamentToEdit}
+          onSave={updateTournament}
+          onCancel={() => setShowEditModal(false)}
           loading={loading}
         />
       )}
@@ -913,6 +992,182 @@ function DeleteConfirmationModal({ tournament, onConfirm, onCancel, loading }) {
             {loading ? 'Deleting...' : 'Delete Tournament'}
           </button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+function EditTournamentModal({ tournament, onSave, onCancel, loading }) {
+  // Get today's date in local timezone
+  const getLocalDateString = () => {
+    const today = new Date()
+    const year = today.getFullYear()
+    const month = String(today.getMonth() + 1).padStart(2, '0')
+    const day = String(today.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  const [formData, setFormData] = useState({
+    name: tournament?.name || '',
+    date: tournament?.tournament_date || getLocalDateString(),
+    description: tournament?.description || '',
+    eventType: tournament?.events?.[0]?.event_type || 'singles'
+  })
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    onSave(formData)
+  }
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000,
+      padding: '20px'
+    }}>
+      <div style={{
+        backgroundColor: 'var(--card-background)',
+        borderRadius: '8px',
+        padding: '30px',
+        width: '100%',
+        maxWidth: '500px',
+        border: '1px solid var(--border-color)',
+        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)'
+      }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '25px'
+        }}>
+          <h2 style={{ 
+            margin: 0, 
+            color: 'var(--text-color)',
+            fontSize: '24px'
+          }}>
+            Edit Tournament
+          </h2>
+          <button
+            onClick={onCancel}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '24px',
+              cursor: 'pointer',
+              color: 'var(--text-secondary)',
+              padding: '0',
+              width: '30px',
+              height: '30px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{
+          padding: '20px',
+          border: '1px solid var(--border-color)',
+          borderRadius: '8px',
+          backgroundColor: 'var(--background-color)'
+        }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1em', marginBottom: '15px' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px' }}>Tournament Name:</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px' }}>Date:</label>
+              <input
+                type="date"
+                value={formData.date}
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                required
+                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px' }}>Event Type:</label>
+              <select
+                value={formData.eventType}
+                onChange={(e) => setFormData({ ...formData, eventType: e.target.value })}
+                style={{ 
+                  width: '100%', 
+                  padding: '8px', 
+                  borderRadius: '4px', 
+                  border: '1px solid #ddd',
+                  fontSize: '14px'
+                }}
+              >
+                <option value="singles">Singles</option>
+                <option value="doubles">Doubles</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'block', marginBottom: '5px' }}>Description:</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              rows="3"
+              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '15px', justifyContent: 'flex-end' }}>
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={loading}
+              style={{
+                padding: '10px 20px',
+                backgroundColor: 'transparent',
+                color: 'var(--text-secondary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '4px',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.6 : 1
+              }}
+            >
+              Cancel
+            </button>
+            
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                padding: '10px 20px',
+                backgroundColor: '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.6 : 1
+              }}
+            >
+              {loading ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   )

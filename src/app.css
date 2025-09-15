@@ -954,3 +954,48 @@ body {
     flex: 1;
     min-width: 0; /* Allow text to truncate */
 }
+
+/* Tournament actions styles */
+.tournament-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.tournament-edit-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    font-size: 16px;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+}
+
+.tournament-edit-btn:hover {
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+.tournament-delete-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    font-size: 16px;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+}
+
+.tournament-delete-btn:hover {
+    background-color: rgba(220, 53, 69, 0.1);
+}
