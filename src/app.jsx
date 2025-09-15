@@ -4,9 +4,11 @@ import 'preact-material-components/style.css';
 import TournamentManager from './components/TournamentManager';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AuthGuard from './components/AuthGuard';
+import Profile from './components/Profile';
 
 const AppContent = () => {
     const [isDarkMode, setIsDarkMode] = useState(false);
+    const [showProfile, setShowProfile] = useState(false);
     const { user, logout } = useAuth();
 
     // Load theme preference from localStorage on mount
@@ -42,14 +44,57 @@ const AppContent = () => {
                 <h1>The Legendary Wee Weekly!</h1>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                     {user && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <span style={{ 
-                                fontSize: '14px', 
-                                color: 'var(--text-secondary)',
-                                fontWeight: '500'
-                            }}>
-                                {user.name} ({user.role})
-                            </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div 
+                                onClick={() => setShowProfile(true)}
+                                style={{ 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    gap: '8px',
+                                    cursor: 'pointer',
+                                    padding: '4px 8px',
+                                    borderRadius: '6px',
+                                    transition: 'background-color 0.2s',
+                                    ':hover': {
+                                        backgroundColor: 'var(--background-color)'
+                                    }
+                                }}
+                            >
+                                <div style={{
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '50%',
+                                    overflow: 'hidden',
+                                    backgroundColor: 'var(--background-color)',
+                                    border: '2px solid var(--border-color)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '16px',
+                                    color: 'var(--text-secondary)'
+                                }}>
+                                    {user.avatar ? (
+                                        <img 
+                                            src={user.avatar} 
+                                            alt="Avatar" 
+                                            style={{
+                                                width: '100%',
+                                                height: '100%',
+                                                objectFit: 'cover'
+                                            }}
+                                        />
+                                    ) : (
+                                        <span>👤</span>
+                                    )}
+                                </div>
+                                <span style={{ 
+                                    fontSize: '14px', 
+                                    color: 'var(--text-secondary)',
+                                    fontWeight: '500'
+                                }}>
+                                    {user.name} ({user.role})
+                                </span>
+                            </div>
                             <button
                                 onClick={handleLogout}
                                 style={{
@@ -76,6 +121,10 @@ const AppContent = () => {
                 </div>
             </div>
             <TournamentManager />
+            
+            {showProfile && (
+                <Profile onClose={() => setShowProfile(false)} />
+            )}
         </div>
     );
 };
