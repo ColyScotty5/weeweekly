@@ -938,7 +938,8 @@ body {
     transition: transform 0.2s ease;
 }
 
-.avatar:hover {
+/* Only apply hover effect to profile avatars, not participant lists */
+.profile-avatar:hover {
     transform: scale(1.05);
 }
 
