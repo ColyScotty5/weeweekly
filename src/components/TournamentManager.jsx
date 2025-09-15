@@ -685,7 +685,7 @@ function TournamentDetails({ tournament, players, onUpdate }) {
             </div>
           </div>
 
-          <p><strong>Participants:</strong> {event.event_participants?.length || 0} / {event.max_participants}</p>
+          <p><strong>Participants:</strong> {event.event_participants?.length || 0}</p>
 
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             {event.status === 'registration' && (
