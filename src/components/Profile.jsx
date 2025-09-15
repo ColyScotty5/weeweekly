@@ -10,6 +10,10 @@ const Profile = ({ onClose }) => {
     newPassword: '',
     confirmPassword: ''
   });
+  const [emailData, setEmailData] = useState({
+    newEmail: '',
+    confirmEmail: ''
+  });
   const [avatar, setAvatar] = useState(user?.avatar || null);
   const [avatarFile, setAvatarFile] = useState(null);
   const [error, setError] = useState('');
@@ -18,6 +22,12 @@ const Profile = ({ onClose }) => {
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    if (error) setError('');
+    if (success) setSuccess('');
+  };
+
+  const handleEmailChange = (field, value) => {
+    setEmailData(prev => ({ ...prev, [field]: value }));
     if (error) setError('');
     if (success) setSuccess('');
   };
@@ -90,6 +100,44 @@ const Profile = ({ onClose }) => {
         currentPassword: '',
         newPassword: '',
         confirmPassword: ''
+      });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEmailUpdate = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    if (!emailData.newEmail) {
+      setError('New email address is required');
+      return;
+    }
+
+    if (emailData.newEmail !== emailData.confirmEmail) {
+      setError('Email addresses do not match');
+      return;
+    }
+
+    if (emailData.newEmail === user.email) {
+      setError('New email must be different from current email');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await updateProfile({
+        newEmail: emailData.newEmail
+      });
+      
+      setSuccess('Email address updated successfully!');
+      setEmailData({
+        newEmail: '',
+        confirmEmail: ''
       });
     } catch (err) {
       setError(err.message);
@@ -217,6 +265,92 @@ const Profile = ({ onClose }) => {
           <p style={{ margin: '5px 0', color: 'var(--text-secondary)' }}>
             <strong>Role:</strong> {user?.role}
           </p>
+        </div>
+
+        {/* Change Email Section */}
+        <div style={{ marginBottom: '30px' }}>
+          <h3 style={{ 
+            margin: '0 0 15px 0', 
+            color: 'var(--text-color)',
+            fontSize: '18px'
+          }}>
+            Change Email Address
+          </h3>
+          
+          <form onSubmit={handleEmailUpdate}>
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '5px',
+                fontSize: '14px',
+                color: 'var(--text-color)'
+              }}>
+                New Email Address
+              </label>
+              <input
+                type="email"
+                value={emailData.newEmail}
+                onChange={(e) => handleEmailChange('newEmail', e.target.value)}
+                placeholder="Enter new email address"
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  borderRadius: '4px',
+                  border: '1px solid var(--border-color)',
+                  fontSize: '14px',
+                  backgroundColor: 'var(--input-background)',
+                  color: 'var(--text-color)',
+                  boxSizing: 'border-box'
+                }}
+                disabled={loading}
+              />
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '5px',
+                fontSize: '14px',
+                color: 'var(--text-color)'
+              }}>
+                Confirm New Email Address
+              </label>
+              <input
+                type="email"
+                value={emailData.confirmEmail}
+                onChange={(e) => handleEmailChange('confirmEmail', e.target.value)}
+                placeholder="Confirm new email address"
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  borderRadius: '4px',
+                  border: '1px solid var(--border-color)',
+                  fontSize: '14px',
+                  backgroundColor: 'var(--input-background)',
+                  color: 'var(--text-color)',
+                  boxSizing: 'border-box'
+                }}
+                disabled={loading}
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                padding: '10px 20px',
+                backgroundColor: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                fontSize: '14px',
+                opacity: loading ? 0.6 : 1
+              }}
+            >
+              {loading ? 'Updating...' : 'Update Email'}
+            </button>
+          </form>
         </div>
 
         {/* Avatar Section */}

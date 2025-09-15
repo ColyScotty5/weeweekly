@@ -1,0 +1,442 @@
+[
+    {
+        "id": 1,
+        "name": "Luke Adams",
+        "email": "jlukeadams@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 39.45,
+        "total_singles_points": 217,
+        "singles_events_played": 8,
+        "role": "administrator"
+    },
+    {
+        "id": 2,
+        "name": "Scott Turnbull",
+        "email": "blazin.media@gmail.com",
+        "password": "Dimebagg@1979dean",
+        "singles_ranking_points": 38.22,
+        "total_singles_points": 172,
+        "singles_events_played": 6,
+        "role": "super_administrator"
+    },
+    {
+        "id": 3,
+        "name": "Lee Buott",
+        "email": "leebuott@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 34,
+        "total_singles_points": 102,
+        "singles_events_played": 3,
+        "role": "player"
+    },
+    {
+        "id": 4,
+        "name": "Dave Masson",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 33,
+        "total_singles_points": 132,
+        "singles_events_played": 5,
+        "role": "player"
+    },
+    {
+        "id": 5,
+        "name": "Pat Li",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 26.33,
+        "total_singles_points": 79,
+        "singles_events_played": 3,
+        "role": "player"
+    },
+    {
+        "id": 6,
+        "name": "Steve O'Neill",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 24.44,
+        "total_singles_points": 110,
+        "singles_events_played": 6    ,
+        "role": "player"
+    },
+    {
+        "id": 7,
+        "name": "Sandy Gupta",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 23.33,
+        "total_singles_points": 70,
+        "singles_events_played": 3,
+        "role": "player"
+    },
+    {
+        "id": 8,
+        "name": "Graham Flick",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 17.14,
+        "total_singles_points": 60,
+        "singles_events_played": 4,
+        "role": "player"
+    },
+    {
+        "id": 9,
+        "name": "Nick Jarrett",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 16,
+        "total_singles_points": 40,
+        "singles_events_played": 2,
+        "role": "player"
+    },
+    {
+        "id": 10,
+        "name": "Jamie Babington",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 13.6,
+        "total_singles_points": 34,
+        "singles_events_played": 2,
+        "role": "player"
+    },
+    {
+        "id": 11,
+        "name": "Forbes Robertson",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 13.2,
+        "total_singles_points": 33,
+        "singles_events_played": 2,
+        "role": "player"
+    },
+    {
+        "id": 12,
+        "name": "Andrew Halpin",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 12.86,
+        "total_singles_points": 45,
+        "singles_events_played": 4,
+        "role": "player"
+    },
+    {
+        "id": 13,
+        "name": "Katelyn Matthews",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 11.2,
+        "total_singles_points": 28,
+        "singles_events_played": 2,
+        "role": "player"
+    },
+    {
+        "id": 14,
+        "name": "Eddie Boyce",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 11.2,
+        "total_singles_points": 28,
+        "singles_events_played": 2,
+        "role": "player"
+    },
+    {
+        "id": 15,
+        "name": "Ed Maskine",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 11.2,
+        "total_singles_points": 28,
+        "singles_events_played": 2,
+        "role": "player"
+    },
+    {
+        "id": 16,
+        "name": "Jill Robertson",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 10.86,
+        "total_singles_points": 38,
+        "singles_events_played": 4,
+        "role": "player"
+    },
+    {
+        "id": 17,
+        "name": "Brian Murray",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 10.5,
+        "total_singles_points": 42,
+        "singles_events_played": 5,
+        "role": "player"
+    },
+    {
+        "id": 18,
+        "name": "Scott Sangster",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 9.43,
+        "total_singles_points": 33,
+        "singles_events_played": 4,
+        "role": "player"
+    },
+    {
+        "id": 19,
+        "name": "Will Murray",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 7.6,
+        "total_singles_points": 19,
+        "singles_events_played": 2,
+        "role": "player"
+    },
+    {
+        "id": 20,
+        "name": "Joanne Legere",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 7,
+        "total_singles_points": 14,
+        "singles_events_played": 1,
+        "role": "player"
+    },
+    {
+        "id": 21,
+        "name": "David O'Laughlin",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 7,
+        "total_singles_points": 14,
+        "singles_events_played": 1,
+        "role": "player"
+    },
+    {
+        "id": 22,
+        "name": "Dale Robertson",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 6.86,
+        "total_singles_points": 24,
+        "singles_events_played": 4,
+        "role": "player"
+    },
+    {
+        "id": 23,
+        "name": "Mikayla Matthews",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 6.8,
+        "total_singles_points": 17,
+        "singles_events_played": 2,
+        "role": "player"
+    },
+    {
+        "id": 24,
+        "name": "David Walsh",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 6,
+        "total_singles_points": 24,
+        "singles_events_played": 5,
+        "role": "player"
+    },
+    {
+        "id": 25,
+        "name": "Rob Panahi",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 4,
+        "total_singles_points": 8,
+        "singles_events_played": 1,
+        "role": "player"
+    },
+    {
+        "id": 26,
+        "name": "Mike LeBlanc",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 4,
+        "total_singles_points": 8,
+        "singles_events_played": 1,
+        "role": "player"
+    },
+    {
+        "id": 27,
+        "name": "Jeff Johnson",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 4,
+        "total_singles_points": 10,
+        "singles_events_played": 2,
+        "role": "player"
+    },
+    {
+        "id": 28,
+        "name": "Parth Patel",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 3.2,
+        "total_singles_points": 8,
+        "singles_events_played": 2,
+        "role": "player"
+    },
+    {
+        "id": 29,
+        "name": "John MacLean",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 3.2,
+        "total_singles_points": 8,
+        "singles_events_played": 2,
+        "role": "player"
+    },
+    {
+        "id": 30,
+        "name": "Joe Wright",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 2.5,
+        "total_singles_points": 5,
+        "singles_events_played": 1,
+        "role": "player"
+    },
+    {
+        "id": 31,
+        "name": "Lilia Johnson",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 2.5,
+        "total_singles_points": 5,
+        "singles_events_played": 1,
+        "role": "player"
+    },
+    {
+        "id": 32,
+        "name": "Sagar Patel",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 2.5,
+        "total_singles_points": 5,
+        "singles_events_played": 1,
+        "role": "player"
+    },
+    {
+        "id": 33,
+        "name": "Chuck Morley",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 2.5,
+        "total_singles_points": 5,
+        "singles_events_played": 1,
+        "role": "player"
+    },
+    {
+        "id": 34,
+        "name": "Maureen Wheller",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 1.5,
+        "total_singles_points": 3,
+        "singles_events_played": 1,
+        "role": "player"
+    },
+    {
+        "id": 35,
+        "name": "Paul McIntyre",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 0,
+        "total_singles_points": 0,
+        "singles_events_played": 0,
+        "role": "player"
+    },
+    {
+        "id": 36,
+        "name": "Chiaki Stowe",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 0,
+        "total_singles_points": 0,
+        "singles_events_played": 0,
+        "role": "player"
+    },
+    {
+        "id": 37,
+        "name": "Veronica Dossah",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 0,
+        "total_singles_points": 0,
+        "singles_events_played": 0,
+        "role": "player"
+    },
+    {
+        "id": 38,
+        "name": "Dylan McHugh",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 0,
+        "total_singles_points": 0,
+        "singles_events_played": 0,
+        "role": "player"
+    },
+    {
+        "id": 39,
+        "name": "Jason McCuish",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 0,
+        "total_singles_points": 0,
+        "singles_events_played": 0,
+        "role": "player"
+    },
+    {
+        "id": 40,
+        "name": "Julian Boyle",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 0,
+        "total_singles_points": 0,
+        "singles_events_played": 0,
+        "role": "player"
+    },
+    {
+        "id": 41,
+        "name": "Dylan Rogers",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 0,
+        "total_singles_points": 0,
+        "singles_events_played": 0,
+        "role": "player"
+    },
+    {
+        "id": 42,
+        "name": "Matt MacLellan",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 0,
+        "total_singles_points": 0,
+        "singles_events_played": 0,
+        "role": "player"
+    },
+    {
+        "id": 43,
+        "name": "Larry Wagner",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 0,
+        "total_singles_points": 0,
+        "singles_events_played": 0,
+        "role": "player"
+    },
+    {
+        "id": 44,
+        "name": "Jeannette McGlone",
+        "email": "name@gmail.com",
+        "password": "tennisball123",
+        "singles_ranking_points": 0,
+        "total_singles_points": 0,
+        "singles_events_played": 0,
+        "role": "player"
+    }
+]
