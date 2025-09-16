@@ -182,6 +182,14 @@ export default function TournamentManager() {
     }
   }
 
+  // Helper function to determine if a tournament is completed
+  const isTournamentCompleted = (tournament) => {
+    if (!tournament.events || tournament.events.length === 0) {
+      return false
+    }
+    return tournament.events.every(event => event.status === 'completed')
+  }
+
   return (
     <div style={{ padding: '20px', margin: '0 auto' }}>
       <h2>Tournament Manager</h2>
@@ -226,48 +234,57 @@ export default function TournamentManager() {
         <div className="tournament-card">
           <h3>Tournaments</h3>
           <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-            {tournaments.map(tournament => (
-              <div
-                key={tournament.id}
-                onClick={() => loadTournamentDetails(tournament.id)}
-                className={`tournament-item ${selectedTournament?.id === tournament.id ? 'selected' : ''}`}
-              >
-                <div className="tournament-item-content">
-                  <div className="tournament-item-title">
-                    {tournament.name}
-                    <span className="participant-count">
-                      {(() => {
-                        const totalParticipants = tournament.events?.reduce((total, event) => {
-                          return total + (event.event_participants?.length || 0)
-                        }, 0) || 0
-                        return ` (${totalParticipants} participant${totalParticipants !== 1 ? 's' : ''})`
-                      })()}
-                    </span>
+            {tournaments.map(tournament => {
+              const isCompleted = isTournamentCompleted(tournament)
+              return (
+                <div
+                  key={tournament.id}
+                  onClick={() => loadTournamentDetails(tournament.id)}
+                  className={`tournament-item ${selectedTournament?.id === tournament.id ? 'selected' : ''} ${isCompleted ? 'completed' : ''}`}
+                >
+                  <div className="tournament-item-content">
+                    <div className="tournament-item-title">
+                      {tournament.name}
+                      <span className="participant-count">
+                        {(() => {
+                          const totalParticipants = tournament.events?.reduce((total, event) => {
+                            return total + (event.event_participants?.length || 0)
+                          }, 0) || 0
+                          return ` (${totalParticipants} participant${totalParticipants !== 1 ? 's' : ''})`
+                        })()}
+                      </span>
+                    </div>
+                    <div className="tournament-item-date">
+                      {new Date(tournament.tournament_date + 'T12:00:00').toLocaleDateString()}
+                      {isCompleted && (
+                        <span className="tournament-completed-indicator">
+                          <span className="completed-text">Completed</span>
+                          <span className="completed-check">✓</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="tournament-item-date">
-                    {new Date(tournament.tournament_date + 'T12:00:00').toLocaleDateString()}
+                  <div className="tournament-actions">
+                    <button
+                      className="tournament-edit-btn"
+                      onClick={(e) => handleEditTournament(tournament, e)}
+                      title="Edit Tournament"
+                      aria-label={`Edit ${tournament.name}`}
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      className="tournament-delete-btn"
+                      onClick={(e) => handleDeleteTournament(tournament, e)}
+                      title="Delete Tournament"
+                      aria-label={`Delete ${tournament.name}`}
+                    >
+                      🗑️
+                    </button>
                   </div>
                 </div>
-                <div className="tournament-actions">
-                  <button
-                    className="tournament-edit-btn"
-                    onClick={(e) => handleEditTournament(tournament, e)}
-                    title="Edit Tournament"
-                    aria-label={`Edit ${tournament.name}`}
-                  >
-                    ✏️
-                  </button>
-                  <button
-                    className="tournament-delete-btn"
-                    onClick={(e) => handleDeleteTournament(tournament, e)}
-                    title="Delete Tournament"
-                    aria-label={`Delete ${tournament.name}`}
-                  >
-                    🗑️
-                  </button>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
 
@@ -641,8 +658,27 @@ function TournamentDetails({ tournament, players, onUpdate }) {
                 backgroundColor: getStatusColor(event.status),
                 color: 'white'
               }}>
-                {event.status}
+                {event.status === 'draw_created' ? 'Draw Created' : event.status}
               </span>
+              
+              {/* Edit Event Button */}
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  // TODO: Add edit event functionality
+                  console.log('Edit event:', event.id);
+                }}
+                style={{
+                  color: '#6c757d',
+                  textDecoration: 'underline',
+                  fontSize: '0.8em',
+                  cursor: 'pointer',
+                  marginLeft: '8px'
+                }}
+              >
+                Edit Event
+              </a>
               
               {/* Complete Event Button */}
               {(event.status === 'draw_created' || event.status === 'in_progress') && (

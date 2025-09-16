@@ -125,6 +125,35 @@ body {
     border-color: var(--accent-primary);
 }
 
+/* Completed Tournament Styling */
+.tournament-item.completed {
+    background-color: #d4f6d4; /* Light green background */
+    border-color: #28a745;
+}
+
+[data-theme="dark"] .tournament-item.completed {
+    background-color: #1a4a1a; /* Dark green background for dark theme */
+    border-color: #51cf66;
+}
+
+.tournament-item.completed:hover {
+    background-color: #c3f0c3; /* Slightly darker green on hover */
+}
+
+[data-theme="dark"] .tournament-item.completed:hover {
+    background-color: #2a5a2a; /* Darker green on hover for dark theme */
+}
+
+.tournament-item.completed.selected {
+    background-color: #b8e6b8; /* Even darker green when selected */
+    border-color: #28a745;
+}
+
+[data-theme="dark"] .tournament-item.completed.selected {
+    background-color: #3a6a3a; /* Darker green when selected for dark theme */
+    border-color: #51cf66;
+}
+
 .tournament-item-content {
     flex: 1;
 }
@@ -137,6 +166,45 @@ body {
 .tournament-item-date {
     font-size: 0.9em;
     color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tournament-completed-indicator {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.85em;
+    color: #28a745;
+    font-weight: 600;
+}
+
+[data-theme="dark"] .tournament-completed-indicator {
+    color: #51cf66;
+}
+
+.completed-text {
+    font-size: 0.9em;
+}
+
+.completed-check {
+    font-size: 1em;
+    font-weight: bold;
+    background-color: #28a745;
+    color: white;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7em;
+}
+
+[data-theme="dark"] .completed-check {
+    background-color: #51cf66;
+    color: #1a1a1a;
 }
 
 .tournament-item-status {
