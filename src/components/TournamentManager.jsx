@@ -5,6 +5,23 @@ import TournamentBracket from './TournamentBracket.jsx'
 import Avatar from './Avatar.jsx'
 import { getUserAvatarByEmail } from '../contexts/AuthContext.jsx'
 
+// Loading Spinner Component
+function LoadingSpinner({ size = 20, color = '#007bff' }) {
+  return (
+    <div
+      style={{
+        width: `${size}px`,
+        height: `${size}px`,
+        border: `2px solid ${color}20`,
+        borderTop: `2px solid ${color}`,
+        borderRadius: '50%',
+        animation: 'spin 1s linear infinite',
+        display: 'inline-block'
+      }}
+    />
+  )
+}
+
 export default function TournamentManager() {
   const [tournaments, setTournaments] = useState([])
   const [selectedTournament, setSelectedTournament] = useState(null)
@@ -243,7 +260,7 @@ export default function TournamentManager() {
 
       <div style={{ marginBottom: '20px' }}>
         <button
-          onClick={() => setShowCreateForm(!showCreateForm)}
+          onClick={() => setShowCreateForm(true)}
           style={{
             padding: '10px 20px',
             backgroundColor: '#007bff',
@@ -253,17 +270,9 @@ export default function TournamentManager() {
             cursor: 'pointer'
           }}
         >
-          {showCreateForm ? 'Cancel' : 'Create New Tournament'}
+          Create New Tournament
         </button>
       </div>
-
-      {showCreateForm && (
-        <CreateTournamentForm
-          onSubmit={createTournament}
-          onCancel={() => setShowCreateForm(false)}
-          loading={loading}
-        />
-      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 460px) 1fr', gap: '20px' }}>
         <div className="tournament-card">
@@ -328,7 +337,12 @@ export default function TournamentManager() {
             <TournamentDetails
               tournament={selectedTournament}
               players={players}
-              onUpdate={loadTournaments}
+              onUpdate={() => {
+                loadTournaments()
+                if (selectedTournament) {
+                  loadTournamentDetails(selectedTournament.id)
+                }
+              }}
               onEditEvent={handleEditEvent}
             />
           ) : (
@@ -338,6 +352,15 @@ export default function TournamentManager() {
           )}
         </div>
       </div>
+
+      {/* Create Tournament Modal */}
+      {showCreateForm && (
+        <CreateTournamentModal
+          onSubmit={createTournament}
+          onCancel={() => setShowCreateForm(false)}
+          loading={loading}
+        />
+      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && tournamentToDelete && (
@@ -372,7 +395,7 @@ export default function TournamentManager() {
   )
 }
 
-function CreateTournamentForm({ onSubmit, onCancel, loading }) {
+function CreateTournamentModal({ onSubmit, onCancel, loading }) {
   // Get today's date in local timezone
   const getLocalDateString = () => {
     const today = new Date()
@@ -393,16 +416,77 @@ function CreateTournamentForm({ onSubmit, onCancel, loading }) {
     onSubmit(formData)
   }
 
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onCancel()
+    }
+  }
+
   return (
-    <form onSubmit={handleSubmit} style={{
-      padding: '20px',
-      border: '1px solid #ddd',
-      borderRadius: '4px',
-      marginBottom: '20px',
-      backgroundColor: '#f8f9fa'
-    }}>
-      <h3>Create New Tournament</h3>
-      
+    <div 
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+        padding: '20px'
+      }}
+      onClick={handleOverlayClick}
+    >
+      <div style={{
+        backgroundColor: 'var(--card-background)',
+        borderRadius: '8px',
+        padding: '30px',
+        width: '100%',
+        maxWidth: '500px',
+        border: '1px solid var(--border-color)',
+        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)'
+      }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '25px'
+        }}>
+          <h2 style={{ 
+            margin: 0, 
+            color: 'var(--text-color)',
+            fontSize: '24px'
+          }}>
+            Create New Tournament
+          </h2>
+          <button
+            onClick={onCancel}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '24px',
+              cursor: 'pointer',
+              color: 'var(--text-secondary)',
+              padding: '0',
+              width: '30px',
+              height: '30px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{
+          padding: '20px',
+          border: '1px solid var(--border-color)',
+          borderRadius: '8px',
+          backgroundColor: 'var(--background-color)'
+        }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1em', marginBottom: '15px' }}>
             <div>
               <label style={{ display: 'block', marginBottom: '5px' }}>Date:</label>
@@ -434,47 +518,57 @@ function CreateTournamentForm({ onSubmit, onCancel, loading }) {
             </div>
           </div>
 
-      <div style={{ marginBottom: '15px' }}>
-        <label style={{ display: 'block', marginBottom: '5px' }}>Description:</label>
-        <textarea
-          value={formData.description}
-          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-          rows="3"
-          style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-        />
-      </div>
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'block', marginBottom: '5px' }}>Description:</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              rows="3"
+              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+            />
+          </div>
 
-      <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: '#28a745',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            opacity: loading ? 0.6 : 1
-          }}
-        >
-          {loading ? 'Creating...' : 'Create Tournament'}
-        </button>
-        
-        <a
-          onClick={onCancel}
-          style={{
-            color: '#6c757d',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            textDecoration: 'underline',
-            opacity: loading ? 0.6 : 1,
-            pointerEvents: loading ? 'none' : 'auto'
-          }}
-        >
-          Cancel
-        </a>
+          <div style={{ display: 'flex', gap: '15px', justifyContent: 'flex-end' }}>
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={loading}
+              style={{
+                padding: '10px 20px',
+                backgroundColor: 'transparent',
+                color: 'var(--text-secondary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '4px',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.6 : 1
+              }}
+            >
+              Cancel
+            </button>
+            
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                padding: '10px 20px',
+                backgroundColor: '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.6 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              {loading && <LoadingSpinner size={16} color="white" />}
+              {loading ? 'Creating...' : 'Create Tournament'}
+            </button>
+          </div>
+        </form>
       </div>
-    </form>
+    </div>
   )
 }
 
@@ -739,10 +833,14 @@ function TournamentDetails({ tournament, players, onUpdate, onEditEvent }) {
                     cursor: canCompleteEvent(event.id) && !loading ? 'pointer' : 'not-allowed',
                     fontSize: '0.8em',
                     opacity: canCompleteEvent(event.id) && !loading ? 1 : 0.6,
-                    transition: 'all 0.3s ease'
+                    transition: 'all 0.3s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
                   }}
                   title={canCompleteEvent(event.id) ? 'Complete event and award points' : 'Some matches are still in progress'}
                 >
+                  {loading && <LoadingSpinner size={12} color="white" />}
                   {loading ? 'Completing...' : 'Complete Event'}
                 </button>
               )}
@@ -792,9 +890,13 @@ function TournamentDetails({ tournament, players, onUpdate, onEditEvent }) {
                     border: 'none',
                     borderRadius: '4px',
                     cursor: loading ? 'not-allowed' : 'pointer',
-                    opacity: loading || (event.event_participants?.length || 0) < 4 ? 0.6 : 1
+                    opacity: loading || (event.event_participants?.length || 0) < 4 ? 0.6 : 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
                   }}
                 >
+                  {loading && <LoadingSpinner size={14} color="white" />}
                   {loading ? 'Generating...' : 'Generate Draw'}
                 </button>
               </>
@@ -1025,9 +1127,13 @@ function RegistrationManager({ event, players, onClose, onUpdate }) {
           border: 'none',
           borderRadius: '4px',
           cursor: loading || selectedPlayers.length === 0 ? 'not-allowed' : 'pointer',
-          opacity: loading || selectedPlayers.length === 0 ? 0.6 : 1
+          opacity: loading || selectedPlayers.length === 0 ? 0.6 : 1,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px'
         }}
       >
+        {loading && <LoadingSpinner size={14} color="white" />}
         {loading ? 'Registering...' : `Register ${selectedPlayers.length} Player(s)`}
       </button>
     </div>
@@ -1067,7 +1173,13 @@ function DeleteConfirmationModal({ tournament, onConfirm, onCancel, loading }) {
             className="btn btn-danger" 
             onClick={onConfirm}
             disabled={loading}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
           >
+            {loading && <LoadingSpinner size={16} color="white" />}
             {loading ? 'Deleting...' : 'Delete Tournament'}
           </button>
         </div>
@@ -1233,9 +1345,13 @@ function EditTournamentModal({ tournament, onSave, onCancel, loading }) {
                 border: 'none',
                 borderRadius: '4px',
                 cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.6 : 1
+                opacity: loading ? 0.6 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
               }}
             >
+              {loading && <LoadingSpinner size={16} color="white" />}
               {loading ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
@@ -1395,9 +1511,13 @@ function EditEventModal({ event, onSave, onCancel, loading }) {
                 border: 'none',
                 borderRadius: '4px',
                 cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.6 : 1
+                opacity: loading ? 0.6 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
               }}
             >
+              {loading && <LoadingSpinner size={16} color="white" />}
               {loading ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
