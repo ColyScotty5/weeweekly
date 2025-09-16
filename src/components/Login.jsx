@@ -8,6 +8,7 @@ const Login = () => {
     password: ''
   });
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const { login, loading } = useAuth();
 
   const handleSubmit = async (e) => {
@@ -106,23 +107,50 @@ const Login = () => {
             }}>
               Password
             </label>
-            <input
-              type="password"
-              value={formData.password}
-              onChange={(e) => handleInputChange('password', e.target.value)}
-              placeholder="Enter your password"
-              style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: '4px',
-                border: '1px solid var(--border-color)',
-                fontSize: '14px',
-                backgroundColor: 'var(--input-background)',
-                color: 'var(--text-color)',
-                boxSizing: 'border-box'
-              }}
-              disabled={loading}
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPassword ? "text" : "password"}
+                value={formData.password}
+                onChange={(e) => handleInputChange('password', e.target.value)}
+                placeholder="Enter your password"
+                style={{
+                  width: '100%',
+                  padding: '12px 45px 12px 12px',
+                  borderRadius: '4px',
+                  border: '1px solid var(--border-color)',
+                  fontSize: '14px',
+                  backgroundColor: 'var(--input-background)',
+                  color: 'var(--text-color)',
+                  boxSizing: 'border-box'
+                }}
+                disabled={loading}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  color: 'var(--text-secondary)',
+                  fontSize: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '20px',
+                  height: '20px'
+                }}
+                disabled={loading}
+                title={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? '🙈' : '👁️'}
+              </button>
+            </div>
           </div>
 
           {error && (
