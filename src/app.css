@@ -52,6 +52,12 @@ body {
     transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+/* Loading Spinner Animation */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
 * {
     box-sizing: border-box;
 }
