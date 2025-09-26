@@ -576,6 +576,7 @@ function TournamentDetails({ tournament, players, onUpdate, onEditEvent }) {
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [registrationMode, setRegistrationMode] = useState(false)
   const [bracketView, setBracketView] = useState(null)
+  const [bracketType, setBracketType] = useState('main') // 'main' or 'consolation'
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [eventMatches, setEventMatches] = useState({})
@@ -903,19 +904,48 @@ function TournamentDetails({ tournament, players, onUpdate, onEditEvent }) {
             )}
 
             {(event.status === 'draw_created' || event.status === 'in_progress' || event.status === 'completed') && (
-              <button
-                onClick={() => setBracketView(bracketView === event.id ? null : event.id)}
-                style={{
-                  padding: '6px 12px',
-                  backgroundColor: '#17a2b8',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}
-              >
-                {bracketView === event.id ? 'Hide Bracket' : 'View Bracket'}
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => {
+                    if (bracketView === event.id && bracketType === 'main') {
+                      setBracketView(null)
+                    } else {
+                      setBracketView(event.id)
+                      setBracketType('main')
+                    }
+                  }}
+                  style={{
+                    padding: '6px 12px',
+                    backgroundColor: bracketView === event.id && bracketType === 'main' ? '#0056b3' : '#17a2b8',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {bracketView === event.id && bracketType === 'main' ? 'Hide Main Bracket' : 'Main Bracket'}
+                </button>
+                <button
+                  onClick={() => {
+                    if (bracketView === event.id && bracketType === 'consolation') {
+                      setBracketView(null)
+                    } else {
+                      setBracketView(event.id)
+                      setBracketType('consolation')
+                    }
+                  }}
+                  style={{
+                    padding: '6px 12px',
+                    backgroundColor: bracketView === event.id && bracketType === 'consolation' ? '#0056b3' : '#17a2b8',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {bracketView === event.id && bracketType === 'consolation' ? 'Hide Consolation' : 'Consolation'}
+                </button>
+              </div>
             )}
             
             <button
@@ -941,6 +971,7 @@ function TournamentDetails({ tournament, players, onUpdate, onEditEvent }) {
             <div style={{ marginTop: '15px' }}>
               <TournamentBracket 
                 event={event} 
+                bracketType={bracketType}
                 onMatchUpdate={() => {
                   onUpdate()
                   // Refresh tournament details to get updated match data
@@ -1061,12 +1092,12 @@ function RegistrationManager({ event, players, onClose, onUpdate }) {
     <div style={{
       marginTop: '15px',
       padding: '15px',
-      border: '2px solid #007bff',
+      border: '2px solid var(--accent-primary)',
       borderRadius: '4px',
-      backgroundColor: '#f8f9fa'
+      backgroundColor: 'var(--bg-secondary)'
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-        <h6 style={{ margin: 0 }}>Registration Manager</h6>
+        <h6 style={{ margin: 0, color: 'var(--text-primary)' }}>Registration Manager</h6>
         <button
           onClick={onClose}
           style={{
@@ -1086,8 +1117,8 @@ function RegistrationManager({ event, players, onClose, onUpdate }) {
         <div style={{
           padding: '8px',
           marginBottom: '15px',
-          backgroundColor: message.includes('✅') ? '#d4edda' : '#f8d7da',
-          border: `1px solid ${message.includes('✅') ? '#c3e6cb' : '#f5c6cb'}`,
+          backgroundColor: message.includes('✅') ? 'var(--success)' : 'var(--danger)',
+          color: 'white',
           borderRadius: '4px'
         }}>
           {message}
@@ -1095,10 +1126,22 @@ function RegistrationManager({ event, players, onClose, onUpdate }) {
       )}
 
       <div style={{ marginBottom: '15px' }}>
-        <h6>Available Players:</h6>
-        <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #ddd', borderRadius: '4px', padding: '10px' }}>
+        <h6 style={{ color: 'var(--text-primary)' }}>Available Players:</h6>
+        <div style={{ 
+          maxHeight: '200px', 
+          overflowY: 'auto', 
+          border: '1px solid var(--border-color)', 
+          borderRadius: '4px', 
+          padding: '10px',
+          backgroundColor: 'var(--bg-primary)'
+        }}>
           {availablePlayers.map(player => (
-            <label key={player.id} style={{ display: 'block', marginBottom: '5px' }}>
+            <label key={player.id} style={{ 
+              display: 'block', 
+              marginBottom: '5px',
+              color: 'var(--text-primary)',
+              cursor: 'pointer'
+            }}>
               <input
                 type="checkbox"
                 checked={selectedPlayers.includes(player.id)}
