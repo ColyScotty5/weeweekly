@@ -923,6 +923,32 @@ body {
     text-decoration: line-through;
 }
 
+/* Dark mode styles for match cards */
+[data-theme="dark"] .match-card {
+    background: #3a3a3a; /* Darker grey background for match cards */
+    border-color: #555555;
+}
+
+[data-theme="dark"] .player-row {
+    border-bottom-color: #555555;
+}
+
+[data-theme="dark"] .player-name {
+    color: #333333; /* Dark text for player names */
+}
+
+[data-theme="dark"] .player-ranking {
+    color: #666666; /* Dark grey text for player rankings */
+}
+
+[data-theme="dark"] .player-row.loser {
+    background-color: #2a2a2a !important; /* Darker background for losing players */
+}
+
+[data-theme="dark"] .player-name.loser {
+    color: #cccccc; /* Lighter grey for losing player names */
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .bracket-container {
