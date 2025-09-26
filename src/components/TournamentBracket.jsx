@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'preact/hooks'
 import { matchesApi } from '../lib/supabase.js'
-import { createNextRoundMatches } from '../lib/tournamentUtils.js'
+import { createNextRoundMatches, generateConsolationMatches } from '../lib/tournamentUtils.js'
 import Avatar from './Avatar.jsx'
 import { getUserAvatarByEmail } from '../contexts/AuthContext.jsx'
 
-export default function TournamentBracket({ event, onMatchUpdate }) {
+export default function TournamentBracket({ event, bracketType = 'main', onMatchUpdate }) {
   const [matches, setMatches] = useState([])
   const [loading, setLoading] = useState(false)
   const [selectedMatch, setSelectedMatch] = useState(null)
@@ -14,13 +14,45 @@ export default function TournamentBracket({ event, onMatchUpdate }) {
     if (event?.id) {
       loadMatches()
     }
-  }, [event?.id])
+  }, [event?.id, bracketType])
 
   const loadMatches = async () => {
     setLoading(true)
     try {
       const data = await matchesApi.getByEvent(event.id)
-      setMatches(data)
+      
+      if (bracketType === 'consolation') {
+        // Filter for consolation matches
+        const consolationMatches = data.filter(match => match.bracket_type === 'consolation')
+        
+        // If no consolation matches exist but we have completed first round matches, generate them
+        if (consolationMatches.length === 0) {
+          const firstRoundMatches = data.filter(match => 
+            (match.bracket_type === 'main' || !match.bracket_type) &&
+            match.status === 'completed' &&
+            (match.round_name.includes('Round of') || match.round_name === 'Round 1' || 
+             (match.bracket_position !== undefined && match.bracket_position >= 0))
+          )
+          
+          if (firstRoundMatches.length > 0) {
+            try {
+              const generatedMatches = await generateConsolationMatches(event.id)
+              setMatches(generatedMatches)
+            } catch (error) {
+              console.error('Error generating consolation matches:', error)
+              setMatches([])
+            }
+          } else {
+            setMatches([])
+          }
+        } else {
+          setMatches(consolationMatches)
+        }
+      } else {
+        // Filter for main bracket matches (default behavior)
+        const mainMatches = data.filter(match => match.bracket_type === 'main' || !match.bracket_type)
+        setMatches(mainMatches)
+      }
     } catch (error) {
       console.error('Error loading matches:', error)
     } finally {
@@ -33,6 +65,13 @@ export default function TournamentBracket({ event, onMatchUpdate }) {
   }
 
   if (!matches.length) {
+    if (bracketType === 'consolation') {
+      return (
+        <div style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
+          No consolation bracket available yet. Complete some first round matches to generate the consolation bracket.
+        </div>
+      )
+    }
     return (
       <div style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
         No bracket generated yet. Generate a draw to see the tournament bracket.
@@ -66,7 +105,9 @@ export default function TournamentBracket({ event, onMatchUpdate }) {
 
   return (
     <div className="tournament-bracket">
-      <h3>Tournament Bracket - {event.event_type?.charAt(0).toUpperCase() + event.event_type?.slice(1)}</h3>
+      <h3>
+        {bracketType === 'consolation' ? 'Consolation' : 'Main'} Bracket - {event.event_type?.charAt(0).toUpperCase() + event.event_type?.slice(1)}
+      </h3>
       
       <div className="bracket-container" style={{ minHeight: `${calculateBracketHeight()}px` }}>
         <BracketLines matches={matches} rounds={rounds} />

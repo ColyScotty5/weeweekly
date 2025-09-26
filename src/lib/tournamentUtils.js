@@ -316,6 +316,90 @@ export function calculateRankingPoints(playerResults, eventType) {
   return totalEvents > 0 ? totalPoints / totalEvents : 0
 }
 
+// Generate consolation bracket matches from first round losers
+export async function generateConsolationMatches(eventId) {
+  const { matchesApi } = await import('./supabase.js')
+  
+  try {
+    // Get all matches for the event
+    const allMatches = await matchesApi.getByEvent(eventId)
+    
+    // Find first round matches that are completed
+    const firstRoundMatches = allMatches.filter(match => 
+      match.round_name.includes('Round of') || match.round_name === 'Round 1' || 
+      (match.bracket_position !== undefined && match.bracket_position >= 0)
+    ).filter(match => match.status === 'completed')
+    
+    if (firstRoundMatches.length === 0) {
+      console.log('No completed first round matches found')
+      return []
+    }
+    
+    // Get losers from first round matches, maintaining bracket order
+    const losers = []
+    firstRoundMatches
+      .sort((a, b) => a.bracket_position - b.bracket_position) // Sort by bracket position
+      .forEach(match => {
+        const loserId = match.winner_id === match.player1_id ? match.player2_id : match.player1_id
+        if (loserId) {
+          losers.push({
+            playerId: loserId,
+            originalBracketPosition: match.bracket_position
+          })
+        }
+      })
+    
+    if (losers.length < 2) {
+      console.log('Not enough losers to create consolation bracket')
+      return []
+    }
+    
+    // Check if consolation matches already exist
+    const existingConsolationMatches = allMatches.filter(match => match.bracket_type === 'consolation')
+    if (existingConsolationMatches.length > 0) {
+      console.log('Consolation matches already exist')
+      return existingConsolationMatches
+    }
+    
+    // Create consolation bracket matches
+    const consolationMatches = []
+    const maxMatchNumber = Math.max(...allMatches.map(m => m.match_number || 0))
+    let matchNumber = maxMatchNumber + 1
+    
+    // Pair losers: match 1 & 2 losers play each other, match 3 & 4 losers play each other, etc.
+    for (let i = 0; i < losers.length; i += 2) {
+      if (losers[i] && losers[i + 1]) {
+        const consolationMatch = {
+          event_id: eventId,
+          player1_id: losers[i].playerId,
+          player2_id: losers[i + 1].playerId,
+          round_name: 'Consolation Round 1',
+          bracket_type: 'consolation',
+          match_number: matchNumber,
+          status: 'scheduled',
+          bracket_position: Math.floor(i / 2)
+        }
+        
+        consolationMatches.push(consolationMatch)
+        matchNumber++
+      }
+    }
+    
+    // Create the matches in the database
+    console.log(`Creating ${consolationMatches.length} consolation matches`)
+    const createdMatches = []
+    for (const match of consolationMatches) {
+      const createdMatch = await matchesApi.create(match)
+      createdMatches.push(createdMatch)
+    }
+    
+    return createdMatches
+  } catch (error) {
+    console.error('Error generating consolation matches:', error)
+    throw error
+  }
+}
+
 // Create next round matches when current round is complete
 export async function createNextRoundMatches(eventId, completedRound) {
   const { matchesApi, eventsApi } = await import('./supabase.js')
@@ -328,6 +412,9 @@ export async function createNextRoundMatches(eventId, completedRound) {
     const event = await eventsApi.getById(eventId)
     
     console.log(`Total matches in event: ${allMatches.length}`)
+    
+    // Check if this is a consolation round
+    const isConsolationRound = completedRound.includes('Consolation')
     
     // Get completed matches from the current round
     const currentRoundMatches = allMatches.filter(m => 
@@ -359,7 +446,7 @@ export async function createNextRoundMatches(eventId, completedRound) {
     winners.sort((a, b) => a.bracketPosition - b.bracketPosition)
     
     // Create next round matches
-    const nextRoundName = getNextRoundName(completedRound)
+    const nextRoundName = getNextRoundName(completedRound, isConsolationRound)
     if (!nextRoundName) return true // Tournament is complete
     
     // Check if next round matches already exist
@@ -381,7 +468,7 @@ export async function createNextRoundMatches(eventId, completedRound) {
           player1_id: winners[i].winnerId,
           player2_id: winners[i + 1].winnerId,
           round_name: nextRoundName,
-          bracket_type: 'main',
+          bracket_type: isConsolationRound ? 'consolation' : 'main',
           match_number: matchNumber,
           status: 'scheduled',
           bracket_position: Math.floor(i / 2)
@@ -433,7 +520,19 @@ async function getPlayersWithByes(eventId, roundName) {
 }
 
 // Get the next round name
-function getNextRoundName(currentRound) {
+function getNextRoundName(currentRound, isConsolationRound = false) {
+  if (isConsolationRound) {
+    // Handle consolation round progression
+    if (currentRound === 'Consolation Round 1') {
+      return 'Consolation Semi-Final'
+    } else if (currentRound === 'Consolation Semi-Final') {
+      return 'Consolation Final'
+    } else if (currentRound === 'Consolation Final') {
+      return null // Consolation tournament complete
+    }
+    return null
+  }
+  
   const roundOrder = [
     'Round of 64',
     'Round of 32', 
