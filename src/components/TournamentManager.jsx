@@ -252,7 +252,8 @@ export default function TournamentManager() {
           marginBottom: '20px',
           backgroundColor: message.includes('✅') ? '#d4edda' : '#f8d7da',
           border: `1px solid ${message.includes('✅') ? '#c3e6cb' : '#f5c6cb'}`,
-          borderRadius: '4px'
+          borderRadius: '4px',
+          color: message.includes('✅') ? '#155724' : '#721c24'
         }}>
           {message}
         </div>
@@ -773,7 +774,8 @@ function TournamentDetails({ tournament, players, onUpdate, onEditEvent }) {
           marginBottom: '15px',
           backgroundColor: message.includes('✅') ? '#d4edda' : '#f8d7da',
           border: `1px solid ${message.includes('✅') ? '#c3e6cb' : '#f5c6cb'}`,
-          borderRadius: '4px'
+          borderRadius: '4px',
+          color: message.includes('✅') ? '#155724' : '#721c24'
         }}>
           {message}
         </div>
