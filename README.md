@@ -113,6 +113,28 @@ npm run dev
 
 The app will be available at `http://localhost:5173`
 
+## Deployment
+
+### Production Build
+To build the app for production deployment:
+```bash
+npm run build
+```
+
+The built files will be in the `dist/` folder, ready for deployment to any web server.
+
+### Deployment Options
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions including:
+- GitHub Pages (free)
+- Netlify (free tier available)
+- Vercel (free tier available)
+- Traditional web hosting
+
+### Testing Production Build Locally
+```bash
+npm run preview
+```
+
 ## Usage Guide
 
 ### Creating a Tournament
