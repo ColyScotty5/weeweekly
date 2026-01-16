@@ -72,11 +72,30 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
 }
 
 .app-header h1 {
     margin: 0;
     color: var(--text-primary);
+}
+
+/* Responsive leaderboard buttons */
+@media (max-width: 768px) {
+    .app-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .app-header > div {
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .app-header h1 {
+        font-size: 1.5rem;
+    }
 }
 
 .theme-toggle {
