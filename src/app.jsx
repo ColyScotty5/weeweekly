@@ -1,6 +1,5 @@
 import { h } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
-import 'preact-material-components/style.css';
 import TournamentManager from './components/TournamentManager';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AuthGuard from './components/AuthGuard';

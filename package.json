@@ -11,8 +11,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.52.0",
-    "preact": "^10.26.9",
-    "preact-material-components": "^1.6.1"
+    "preact": "^10.26.9"
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.10.1",

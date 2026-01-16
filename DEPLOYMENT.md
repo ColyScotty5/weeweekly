@@ -56,9 +56,26 @@ This guide explains how to deploy your tennis tournament app to various hosting 
 ## Important Notes
 
 ### Environment Variables
-Make sure your Supabase configuration is set up correctly:
-- Your Supabase URL and API key should be configured in `src/lib/supabase.js`
-- For security, consider using environment variables in production
+
+**For Local Development:**
+1. Create a `.env` file in the project root (already in `.gitignore`)
+2. Add your Supabase credentials:
+   ```
+   VITE_SUPABASE_URL=https://your-project.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-anon-key-here
+   ```
+3. Get these from: Supabase Dashboard → Settings → API
+4. Restart your dev server after creating `.env`
+
+**For Production (Vercel/Netlify):**
+1. Go to your hosting platform dashboard
+2. Navigate to Environment Variables settings
+3. Add the same variables:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+4. Redeploy your app
+
+**Security Note:** The anon key is safe to expose in client-side code. It's protected by Supabase Row Level Security (RLS) policies. Never commit your `.env` file to the repo
 
 ### Single Page Application (SPA) Routing
 This app uses client-side routing. Configure your hosting platform to:
