@@ -5,10 +5,12 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AuthGuard from './components/AuthGuard';
 import Profile from './components/Profile';
 import Avatar from './components/Avatar';
+import Leaderboard from './components/Leaderboard';
 
 const AppContent = () => {
     const [isDarkMode, setIsDarkMode] = useState(false);
     const [showProfile, setShowProfile] = useState(false);
+    const [showLeaderboard, setShowLeaderboard] = useState(null); // 'singles' | 'doubles' | null
     const { user, logout } = useAuth();
 
     // Load theme preference from localStorage on mount
@@ -41,7 +43,53 @@ const AppContent = () => {
     return (
         <div className="app-container">
             <div className="app-header">
-                <h1>The Legendary Wee Weekly!</h1>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                    <h1 style={{ margin: 0 }}>The Legendary Wee Weekly!</h1>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                            onClick={() => setShowLeaderboard('singles')}
+                            style={{
+                                padding: '8px 16px',
+                                fontSize: '14px',
+                                backgroundColor: 'var(--accent-primary)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontWeight: '500',
+                                transition: 'all 0.2s ease',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                            }}
+                            onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                            onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                        >
+                            🎾 Singles
+                        </button>
+                        <button
+                            onClick={() => setShowLeaderboard('doubles')}
+                            style={{
+                                padding: '8px 16px',
+                                fontSize: '14px',
+                                backgroundColor: 'var(--info)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontWeight: '500',
+                                transition: 'all 0.2s ease',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                            }}
+                            onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                            onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                        >
+                            🎾🎾 Doubles
+                        </button>
+                    </div>
+                </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                     {user && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -103,6 +151,13 @@ const AppContent = () => {
             
             {showProfile && (
                 <Profile onClose={() => setShowProfile(false)} />
+            )}
+
+            {showLeaderboard && (
+                <Leaderboard 
+                    type={showLeaderboard} 
+                    onClose={() => setShowLeaderboard(null)} 
+                />
             )}
         </div>
     );
