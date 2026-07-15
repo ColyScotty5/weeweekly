@@ -311,7 +311,7 @@ export default function Leaderboard({ type, onClose }) {
             lineHeight: '1.5'
           }}>
             <strong>How rankings work:</strong><br/>
-            Last 12 months of event results only. CD = 1.5 + (Events × 0.5). Rank Points = Total Points ÷ CD.
+            Last 12 months of <strong>completed</strong> events only. CD = 1.5 + (Events × 0.5). Rank Points = Total Points ÷ CD.
           </div>
         </div>
       </div>

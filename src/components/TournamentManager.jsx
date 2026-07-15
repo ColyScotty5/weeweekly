@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'preact/hooks'
 import { tournamentsApi, eventsApi, playersApi, participantsApi, matchesApi, rankingsApi } from '../lib/supabase.js'
-import { generateSinglesDraw, generateDoublesDraw, generateMatches, POINTS_SYSTEM } from '../lib/tournamentUtils.js'
+import { generateSinglesDraw, generateDoublesDraw, generateMatches, POINTS_SYSTEM, syncNextRoundMatches, syncConsolationMatches } from '../lib/tournamentUtils.js'
 import TournamentBracket from './TournamentBracket.jsx'
 import Avatar from './Avatar.jsx'
 import { getUserAvatarByEmail } from '../contexts/AuthContext.jsx'
@@ -647,12 +647,13 @@ function TournamentDetails({ tournament, players, onUpdate, onEditEvent }) {
           }
         }
       } else {
-        for (const team of draw.teams || []) {
-          if (team.player1?.id) {
-            seedUpdates.set(team.player1.id, team.seed_position || null)
+        for (const slot of draw.bracket || []) {
+          if (!slot) continue
+          if (slot.player1?.id) {
+            seedUpdates.set(slot.player1.id, slot.seed_position || null)
           }
-          if (team.player2?.id) {
-            seedUpdates.set(team.player2.id, null)
+          if (slot.player2?.id) {
+            seedUpdates.set(slot.player2.id, null)
           }
         }
       }
@@ -665,13 +666,20 @@ function TournamentDetails({ tournament, players, onUpdate, onEditEvent }) {
         await matchesApi.create(match)
       }
 
+      // Seed progressive next-round slots from Bye winners (vs Pending)
+      const firstRoundName = matches[0]?.round_name
+      if (firstRoundName) {
+        await syncNextRoundMatches(eventId, firstRoundName)
+        await syncConsolationMatches(eventId)
+      }
+
       // Update event status
       await eventsApi.update(eventId, {
         status: 'draw_created',
         draw_structure: draw
       })
 
-      setMessage(`✅ Draw generated successfully! (${draw.seededCount || 0} seeded)`)
+      setMessage(`✅ Draw generated successfully! (${draw.seededCount || 0} seeded, ${draw.numberOfByes || 0} byes)`)
       // Load matches for the event to enable completion checking
       await loadEventMatches(eventId)
       onUpdate()

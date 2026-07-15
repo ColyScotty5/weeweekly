@@ -46,7 +46,8 @@ export function generateSinglesDraw(participants, rankingsByPlayerId = new Map()
   const totalPlayers = participants.length
 
   // Find the next power of 2 that accommodates all players
-  const drawSize = Math.pow(2, Math.ceil(Math.log2(totalPlayers)))
+  const drawSize = Math.pow(2, Math.ceil(Math.log2(Math.max(totalPlayers, 2))))
+  const numberOfByes = drawSize - totalPlayers
 
   const enriched = participants.map((participant) => {
     const ranking = rankingsByPlayerId.get(participant.player_id)
@@ -77,31 +78,15 @@ export function generateSinglesDraw(participants, rankingsByPlayerId = new Map()
     seed_position: null
   }))
 
-  // Shuffle unseeded players
   const shuffledUnseeded = [...unseededPlayers].sort(() => Math.random() - 0.5)
-
-  // Create bracket positions array
-  const bracket = new Array(drawSize).fill(null)
-
-  // Place seeded players in standard positions
   const seedPositions = getStandardSeedPositions(drawSize)
-  for (let i = 0; i < seededPlayers.length; i++) {
-    if (seedPositions[i] !== undefined) {
-      bracket[seedPositions[i]] = seededPlayers[i]
-    }
-  }
-
-  // Fill remaining positions with unseeded players
-  let unseededIndex = 0
-  for (let i = 0; i < drawSize && unseededIndex < shuffledUnseeded.length; i++) {
-    if (bracket[i] === null) {
-      bracket[i] = shuffledUnseeded[unseededIndex]
-      unseededIndex++
-    }
-  }
-
-  // Calculate number of byes (empty positions that advance automatically)
-  const numberOfByes = drawSize - totalPlayers
+  const bracket = placeEntriesWithSeedsAndByes({
+    drawSize,
+    numberOfByes,
+    seededEntries: seededPlayers,
+    unseededEntries: shuffledUnseeded,
+    seedPositions
+  })
 
   return {
     bracket,
@@ -109,7 +94,7 @@ export function generateSinglesDraw(participants, rankingsByPlayerId = new Map()
     totalPlayers,
     seededCount: seededPlayers.length,
     numberOfByes,
-    firstRoundMatches: Math.floor((totalPlayers + 1) / 2), // Actual matches in first round
+    firstRoundMatches: Math.floor((totalPlayers + 1) / 2),
     seededPlayers,
     unseededPlayers: shuffledUnseeded
   }
@@ -135,7 +120,6 @@ export function generateDoublesDraw(participants, rankingsByPlayerId = new Map()
   const unranked = enriched.filter((participant) => !participant._isRanked)
 
   const maxSeeds = Math.floor(totalPlayers / 2)
-  // If fewer ranked than half, seed only the ranked players; rest are randomized
   const seededPlayers = ranked.slice(0, maxSeeds).map((participant, index) => ({
     ...participant,
     seed_position: index + 1
@@ -153,11 +137,10 @@ export function generateDoublesDraw(participants, rankingsByPlayerId = new Map()
   const shuffledUnseeded = [...poolForPartners].sort(() => Math.random() - 0.5)
 
   // Create teams by pairing seeded players with unseeded players
-  const teams = []
-
+  const seededTeams = []
   for (let i = 0; i < seededPlayers.length; i++) {
     if (seededPlayers[i] && shuffledUnseeded[i]) {
-      teams.push({
+      seededTeams.push({
         player1: seededPlayers[i],
         player2: shuffledUnseeded[i],
         seed_position: seededPlayers[i].seed_position
@@ -165,59 +148,132 @@ export function generateDoublesDraw(participants, rankingsByPlayerId = new Map()
     }
   }
 
-  // If there are remaining unseeded players, pair them up
   const remainingUnseeded = shuffledUnseeded.slice(seededPlayers.length)
+  const unseededTeams = []
   for (let i = 0; i < remainingUnseeded.length - 1; i += 2) {
-    teams.push({
+    unseededTeams.push({
       player1: remainingUnseeded[i],
       player2: remainingUnseeded[i + 1],
       seed_position: null
     })
   }
 
-  const drawSize = Math.pow(2, Math.ceil(Math.log2(Math.max(teams.length, 1))))
+  const teams = [...seededTeams, ...unseededTeams]
+  const totalTeams = teams.length
+  const drawSize = Math.pow(2, Math.ceil(Math.log2(Math.max(totalTeams, 2))))
+  const numberOfByes = drawSize - totalTeams
+  const seedPositions = getStandardSeedPositions(drawSize)
+
+  const seededTeamsOrdered = seededTeams
+    .slice()
+    .sort((a, b) => a.seed_position - b.seed_position)
+  const shuffledUnseededTeams = [...unseededTeams].sort(() => Math.random() - 0.5)
+
+  const bracket = placeEntriesWithSeedsAndByes({
+    drawSize,
+    numberOfByes,
+    seededEntries: seededTeamsOrdered,
+    unseededEntries: shuffledUnseededTeams,
+    seedPositions
+  })
 
   return {
     teams,
+    bracket,
     drawSize,
-    totalTeams: teams.length,
-    seededCount: seededPlayers.length,
+    totalTeams,
+    seededCount: seededTeamsOrdered.length,
+    numberOfByes,
     seededPlayers,
     unseededPlayers: shuffledUnseeded
   }
 }
 
-// Get standard seed positions for a draw (tennis tournament seeding)
-function getStandardSeedPositions(drawSize) {
-  const positions = []
-  
-  // Standard tennis seeding positions
-  positions[0] = 0 // Seed 1 at position 0 (top)
-  positions[1] = drawSize - 1 // Seed 2 at bottom
-  
-  if (drawSize >= 4) {
-    positions[2] = Math.floor(drawSize / 2) - 1 // Seed 3
-    positions[3] = Math.floor(drawSize / 2) // Seed 4
+/**
+ * ATP/ITF fixed seed positions (0-based).
+ * Seed 1 top, seed 2 bottom, seed 4 in seed 1's half, seed 3 in seed 2's half.
+ * Returns array where index = seedNumber - 1.
+ */
+export function getStandardSeedPositions(drawSize) {
+  if (drawSize < 2) return [0]
+
+  // Size 2 base: seed1 @0, seed2 @1
+  let posBySeed = [0, 1]
+
+  for (let size = 4; size <= drawSize; size *= 2) {
+    const half = size / 2
+    const next = new Array(size)
+
+    for (let seedIndex = 0; seedIndex < half; seedIndex++) {
+      const oldPos = posBySeed[seedIndex]
+      next[seedIndex] = oldPos % 2 === 0 ? oldPos * 2 : oldPos * 2 + 1
+    }
+
+    // New seeds pair as siblings of existing seeds: seed N opposite seed 1, etc.
+    for (let seedIndex = 0; seedIndex < half; seedIndex++) {
+      const expanded = next[seedIndex]
+      const sibling = expanded % 2 === 0 ? expanded + 1 : expanded - 1
+      next[size - seedIndex - 1] = sibling
+    }
+
+    posBySeed = next
   }
-  
-  // For 8 seeds in larger draws
-  if (drawSize >= 8) {
-    positions[4] = Math.floor(drawSize / 4) - 1 // Seed 5
-    positions[5] = Math.floor(drawSize / 4) // Seed 6
-    positions[6] = Math.floor(3 * drawSize / 4) - 1 // Seed 7
-    positions[7] = Math.floor(3 * drawSize / 4) // Seed 8
+
+  return posBySeed
+}
+
+/**
+ * Place seeded entries at ITF slots, reserve R1 opponent slots as byes for seeds
+ * #1, #2, ... then fill remaining holes with unseeded entries.
+ */
+function placeEntriesWithSeedsAndByes({
+  drawSize,
+  numberOfByes,
+  seededEntries,
+  unseededEntries,
+  seedPositions
+}) {
+  const bracket = new Array(drawSize).fill(null)
+
+  for (let i = 0; i < seededEntries.length; i++) {
+    const position = seedPositions[i]
+    if (position === undefined || position < 0 || position >= drawSize) continue
+    bracket[position] = seededEntries[i]
   }
-  
-  // For 16 seeds in very large draws
-  if (drawSize >= 16) {
-    const eighthSize = Math.floor(drawSize / 8)
-    for (let i = 8; i < 16 && i < drawSize; i++) {
-      const section = i - 8
-      positions[i] = section * eighthSize + Math.floor(eighthSize / 2)
+
+  // Bye = empty R1 opponent slot for seed #1, then #2, etc.
+  const reservedByeSlots = new Set()
+  const byesToAssign = Math.max(0, numberOfByes)
+  for (let seedNum = 1; seedNum <= byesToAssign && seedNum <= seededEntries.length; seedNum++) {
+    const seedPos = seedPositions[seedNum - 1]
+    if (seedPos === undefined) continue
+    const opponentPos = seedPos ^ 1
+    if (bracket[opponentPos] === null) {
+      reservedByeSlots.add(opponentPos)
     }
   }
-  
-  return positions
+
+  // If we still need more bye slots (e.g. fewer seeds than byes), take leftover empties
+  if (reservedByeSlots.size < byesToAssign) {
+    for (let pos = 0; pos < drawSize && reservedByeSlots.size < byesToAssign; pos++) {
+      if (bracket[pos] === null && !reservedByeSlots.has(pos)) {
+        reservedByeSlots.add(pos)
+      }
+    }
+  }
+
+  const fillSlots = []
+  for (let pos = 0; pos < drawSize; pos++) {
+    if (bracket[pos] === null && !reservedByeSlots.has(pos)) {
+      fillSlots.push(pos)
+    }
+  }
+
+  for (let i = 0; i < unseededEntries.length && i < fillSlots.length; i++) {
+    bracket[fillSlots[i]] = unseededEntries[i]
+  }
+
+  return bracket
 }
 
 // Generate matches for a draw
@@ -234,16 +290,15 @@ export function generateMatches(eventId, draw, eventType = 'singles') {
 // Generate singles matches with proper bracket structure
 function generateSinglesMatches(eventId, draw) {
   const matches = []
-  const { bracket, drawSize, totalPlayers } = draw
+  const { bracket, drawSize } = draw
   
-  // Generate first round matches only where both players exist
+  // Generate first round matches for every bracket pair (including Bye slots)
   let matchNumber = 1
   
   for (let i = 0; i < drawSize; i += 2) {
     const player1 = bracket[i]
     const player2 = bracket[i + 1]
     
-    // Only create a match if both positions have players
     if (player1 && player2) {
       matches.push({
         event_id: eventId,
@@ -253,27 +308,43 @@ function generateSinglesMatches(eventId, draw) {
         bracket_type: 'main',
         match_number: matchNumber,
         status: 'scheduled',
-        bracket_position: Math.floor(i / 2) // Track position in bracket for advancement
+        bracket_position: Math.floor(i / 2)
+      })
+      matchNumber++
+    } else if (player1 || player2) {
+      // Seeded (or other) player receives a Bye — keep them visible in this round
+      const advancer = player1 || player2
+      matches.push({
+        event_id: eventId,
+        player1_id: player1?.player_id || null,
+        player2_id: player2?.player_id || null,
+        round_name: getRoundName(drawSize, 1),
+        bracket_type: 'main',
+        match_number: matchNumber,
+        status: 'walkover',
+        score: 'Bye',
+        winner_id: advancer.player_id,
+        completed_at: new Date().toISOString(),
+        bracket_position: Math.floor(i / 2)
       })
       matchNumber++
     }
-    // If only one player exists, they get a bye (automatic advancement)
-    // We don't create a match for byes - they advance automatically
   }
   
   return matches
 }
 
-// Generate doubles matches
+// Generate doubles matches using ITF-placed team bracket (null = bye)
 function generateDoublesMatches(eventId, draw) {
   const matches = []
-  const { teams, drawSize } = draw
+  const { bracket, drawSize } = draw
+  const slots = bracket || []
   let matchNumber = 1
-  
-  for (let i = 0; i < teams.length; i += 2) {
-    const team1 = teams[i]
-    const team2 = teams[i + 1]
-    
+
+  for (let i = 0; i < drawSize; i += 2) {
+    const team1 = slots[i]
+    const team2 = slots[i + 1]
+
     if (team1 && team2) {
       matches.push({
         event_id: eventId,
@@ -288,9 +359,27 @@ function generateDoublesMatches(eventId, draw) {
         bracket_position: Math.floor(i / 2)
       })
       matchNumber++
+    } else if (team1 || team2) {
+      const advancer = team1 || team2
+      matches.push({
+        event_id: eventId,
+        player1_id: team1?.player1?.player_id || null,
+        player1_partner_id: team1?.player2?.player_id || null,
+        player2_id: team2?.player1?.player_id || null,
+        player2_partner_id: team2?.player2?.player_id || null,
+        round_name: getRoundName(drawSize, 1),
+        bracket_type: 'main',
+        match_number: matchNumber,
+        status: 'walkover',
+        score: 'Bye',
+        winner_id: advancer.player1.player_id,
+        completed_at: new Date().toISOString(),
+        bracket_position: Math.floor(i / 2)
+      })
+      matchNumber++
     }
   }
-  
+
   return matches
 }
 
@@ -353,219 +442,469 @@ export function calculateRankingPoints(playerResults, eventType) {
   return totalEvents > 0 ? totalPoints / totalEvents : 0
 }
 
-// Generate consolation bracket matches from first round losers
-export async function generateConsolationMatches(eventId) {
+// Round order from earliest → latest (first main round is the earliest present)
+const MAIN_ROUND_ORDER = [
+  'Round of 64',
+  'Round of 32',
+  'Round of 16',
+  'Quarter-Final',
+  'Semi-Final',
+  'Final'
+]
+
+function getMainFirstRoundName(mainMatches) {
+  const roundNames = [...new Set(mainMatches.map((match) => match.round_name).filter(Boolean))]
+  for (const roundName of MAIN_ROUND_ORDER) {
+    if (roundNames.includes(roundName)) return roundName
+  }
+  if (roundNames.includes('Round 1')) return 'Round 1'
+  return roundNames.sort((a, b) => {
+    const aIndex = MAIN_ROUND_ORDER.indexOf(a)
+    const bIndex = MAIN_ROUND_ORDER.indexOf(b)
+    return (aIndex === -1 ? 99 : aIndex) - (bIndex === -1 ? 99 : bIndex)
+  })[0] || null
+}
+
+function getMatchLoserSide(match) {
+  // Bye matches have only one player — they do not feed consolation
+  if (!match?.winner_id) return null
+  if (!match.player1_id || !match.player2_id) return null
+  if (match.status !== 'completed' && match.status !== 'walkover') return null
+  if (match.score === 'Bye') return null
+
+  if (match.winner_id === match.player1_id) {
+    return {
+      playerId: match.player2_id,
+      partnerId: match.player2_partner_id || null,
+      sourceMatchId: match.id,
+      bracketPosition: match.bracket_position
+    }
+  }
+
+  if (match.winner_id === match.player2_id) {
+    return {
+      playerId: match.player1_id,
+      partnerId: match.player1_partner_id || null,
+      sourceMatchId: match.id,
+      bracketPosition: match.bracket_position
+    }
+  }
+
+  return null
+}
+
+function getMatchWinnerSide(match) {
+  if (!match?.winner_id) return null
+  if (match.status !== 'completed' && match.status !== 'walkover') return null
+
+  if (match.winner_id === match.player1_id) {
+    return {
+      playerId: match.player1_id,
+      partnerId: match.player1_partner_id || null,
+      bracketPosition: match.bracket_position
+    }
+  }
+
+  if (match.winner_id === match.player2_id) {
+    return {
+      playerId: match.player2_id,
+      partnerId: match.player2_partner_id || null,
+      bracketPosition: match.bracket_position
+    }
+  }
+
+  return null
+}
+
+function isMatchFinished(match) {
+  return (
+    match &&
+    (match.status === 'completed' ||
+      match.status === 'walkover' ||
+      match.status === 'cancelled')
+  )
+}
+
+/**
+ * Consolation Round 1 mirrors the main first round:
+ * - Loser of match N plays loser of match N+1
+ * - If N was a Bye: that player's first *real* loss (next main round) puts them into consol
+ * - Until then the adjacent R1 loser waits as Pending (not auto-advanced via consol Bye)
+ */
+export async function syncConsolationMatches(eventId) {
   const { matchesApi } = await import('./supabase.js')
-  
-  try {
-    // Get all matches for the event
-    const allMatches = await matchesApi.getByEvent(eventId)
-    
-    // Find first round matches that are completed
-    const firstRoundMatches = allMatches.filter(match => 
-      match.round_name.includes('Round of') || match.round_name === 'Round 1' || 
-      (match.bracket_position !== undefined && match.bracket_position >= 0)
-    ).filter(match => match.status === 'completed')
-    
-    if (firstRoundMatches.length === 0) {
-      console.log('No completed first round matches found')
-      return []
+
+  const allMatches = await matchesApi.getByEvent(eventId)
+  const mainMatches = allMatches.filter(
+    (match) => match.bracket_type === 'main' || !match.bracket_type
+  )
+
+  const firstRoundName = getMainFirstRoundName(mainMatches)
+  if (!firstRoundName) {
+    return allMatches.filter((match) => match.bracket_type === 'consolation')
+  }
+
+  const nextRoundName = getNextRoundName(firstRoundName, false)
+
+  const firstRoundMatches = mainMatches
+    .filter((match) => match.round_name === firstRoundName)
+    .sort((a, b) => (a.bracket_position ?? a.match_number ?? 0) - (b.bracket_position ?? b.match_number ?? 0))
+
+  const existingConsolationR1 = allMatches.filter(
+    (match) =>
+      match.bracket_type === 'consolation' &&
+      match.round_name === 'Consolation Round 1'
+  )
+  const existingByPosition = new Map(
+    existingConsolationR1.map((match) => [match.bracket_position, match])
+  )
+
+  let matchNumber =
+    Math.max(0, ...allMatches.map((match) => match.match_number || 0)) + 1
+
+  const maxBracketPos = Math.max(
+    0,
+    ...firstRoundMatches.map((match) => match.bracket_position ?? 0)
+  )
+
+  const isMainByeMatch = (match) =>
+    Boolean(match && (match.score === 'Bye' || !match.player1_id || !match.player2_id))
+
+  for (let pairStart = 0; pairStart <= maxBracketPos; pairStart += 2) {
+    const topMatch = firstRoundMatches.find((m) => m.bracket_position === pairStart)
+    const bottomMatch = firstRoundMatches.find((m) => m.bracket_position === pairStart + 1)
+    const consolationPosition = Math.floor(pairStart / 2)
+
+    if (!topMatch || !bottomMatch) continue
+    if (!isMatchFinished(topMatch) || !isMatchFinished(bottomMatch)) continue
+
+    const topIsBye = isMainByeMatch(topMatch)
+    const bottomIsBye = isMainByeMatch(bottomMatch)
+
+    let topSide = getMatchLoserSide(topMatch)
+    let bottomSide = getMatchLoserSide(bottomMatch)
+
+    const nextMatch =
+      nextRoundName &&
+      mainMatches.find(
+        (match) =>
+          match.round_name === nextRoundName &&
+          match.bracket_position === consolationPosition
+      )
+
+    // Bye recipients enter consol when they lose their first real match
+    if (nextMatch && isMatchFinished(nextMatch)) {
+      const nextLoser = getMatchLoserSide(nextMatch)
+      const topWinner = getMatchWinnerSide(topMatch)
+      const bottomWinner = getMatchWinnerSide(bottomMatch)
+
+      if (
+        nextLoser &&
+        topIsBye &&
+        topWinner &&
+        nextLoser.playerId === topWinner.playerId
+      ) {
+        topSide = nextLoser
+      }
+      if (
+        nextLoser &&
+        bottomIsBye &&
+        bottomWinner &&
+        nextLoser.playerId === bottomWinner.playerId
+      ) {
+        bottomSide = nextLoser
+      }
     }
-    
-    // Get losers from first round matches, maintaining bracket order
-    const losers = []
-    firstRoundMatches
-      .sort((a, b) => a.bracket_position - b.bracket_position) // Sort by bracket position
-      .forEach(match => {
-        const loserId = match.winner_id === match.player1_id ? match.player2_id : match.player1_id
-        if (loserId) {
-          losers.push({
-            playerId: loserId,
-            originalBracketPosition: match.bracket_position
-          })
-        }
-      })
-    
-    if (losers.length < 2) {
-      console.log('Not enough losers to create consolation bracket')
-      return []
-    }
-    
-    // Check if consolation matches already exist
-    const existingConsolationMatches = allMatches.filter(match => match.bracket_type === 'consolation')
-    if (existingConsolationMatches.length > 0) {
-      console.log('Consolation matches already exist')
-      return existingConsolationMatches
-    }
-    
-    // Create consolation bracket matches
-    const consolationMatches = []
-    const maxMatchNumber = Math.max(...allMatches.map(m => m.match_number || 0))
-    let matchNumber = maxMatchNumber + 1
-    
-    // Pair losers: match 1 & 2 losers play each other, match 3 & 4 losers play each other, etc.
-    for (let i = 0; i < losers.length; i += 2) {
-      if (losers[i] && losers[i + 1]) {
-        const consolationMatch = {
+
+    const existing = existingByPosition.get(consolationPosition)
+
+    // Both consolation participants known → real consol match
+    if (topSide?.playerId && bottomSide?.playerId) {
+      const payload = {
+        player1_id: topSide.playerId,
+        player1_partner_id: topSide.partnerId,
+        player2_id: bottomSide.playerId,
+        player2_partner_id: bottomSide.partnerId,
+        status: 'scheduled',
+        score: null,
+        winner_id: null,
+        completed_at: null
+      }
+
+      if (!existing) {
+        const created = await matchesApi.create({
           event_id: eventId,
-          player1_id: losers[i].playerId,
-          player2_id: losers[i + 1].playerId,
+          ...payload,
           round_name: 'Consolation Round 1',
           bracket_type: 'consolation',
-          match_number: matchNumber,
-          status: 'scheduled',
-          bracket_position: Math.floor(i / 2)
+          match_number: matchNumber++,
+          bracket_position: consolationPosition
+        })
+        existingByPosition.set(consolationPosition, created)
+      } else if (
+        existing.score === 'Bye' ||
+        existing.status === 'walkover' ||
+        !existing.player1_id ||
+        !existing.player2_id ||
+        existing.player1_id !== payload.player1_id ||
+        existing.player2_id !== payload.player2_id
+      ) {
+        const priorByeWinner =
+          existing.score === 'Bye' || existing.status === 'walkover'
+            ? existing.winner_id
+            : null
+
+        // Upgrade premature consol Bye / Pending into the real pairing
+        await matchesApi.update(existing.id, payload)
+
+        // Undo advancement that came from a wrongly granted consol Bye
+        if (priorByeWinner) {
+          const nextConsolName = getNextRoundName('Consolation Round 1', true)
+          if (nextConsolName) {
+            const advanced = allMatches.filter(
+              (match) =>
+                match.bracket_type === 'consolation' &&
+                match.round_name === nextConsolName &&
+                match.status === 'scheduled' &&
+                (match.player1_id === priorByeWinner ||
+                  match.player2_id === priorByeWinner)
+            )
+            for (const match of advanced) {
+              await matchesApi.update(match.id, {
+                player1_id:
+                  match.player1_id === priorByeWinner ? null : match.player1_id,
+                player2_id:
+                  match.player2_id === priorByeWinner ? null : match.player2_id
+              })
+            }
+          }
         }
-        
-        consolationMatches.push(consolationMatch)
-        matchNumber++
+      }
+      continue
+    }
+
+    // Only one side known so far (typical: R1 loser waiting on a bye player's next match)
+    const knownTop = topSide?.playerId ? topSide : null
+    const knownBottom = bottomSide?.playerId ? bottomSide : null
+    if (!knownTop && !knownBottom) continue
+
+    const byePlayerStillAliveInMain =
+      nextMatch &&
+      !isMatchFinished(nextMatch) &&
+      ((topIsBye && getMatchWinnerSide(topMatch)) ||
+        (bottomIsBye && getMatchWinnerSide(bottomMatch)))
+
+    const byePlayerWonNext =
+      nextMatch &&
+      isMatchFinished(nextMatch) &&
+      ((topIsBye &&
+        getMatchWinnerSide(topMatch) &&
+        getMatchWinnerSide(nextMatch)?.playerId ===
+          getMatchWinnerSide(topMatch).playerId) ||
+        (bottomIsBye &&
+          getMatchWinnerSide(bottomMatch) &&
+          getMatchWinnerSide(nextMatch)?.playerId ===
+            getMatchWinnerSide(bottomMatch).playerId))
+
+    if (byePlayerWonNext) {
+      // Bye seed advanced — R1 loser takes a consol Bye instead
+      const lone = knownTop || knownBottom
+      const byePayload = {
+        player1_id: lone.playerId,
+        player1_partner_id: lone.partnerId,
+        player2_id: null,
+        player2_partner_id: null,
+        status: 'walkover',
+        score: 'Bye',
+        winner_id: lone.playerId,
+        completed_at: new Date().toISOString()
+      }
+      if (!existing) {
+        const created = await matchesApi.create({
+          event_id: eventId,
+          ...byePayload,
+          round_name: 'Consolation Round 1',
+          bracket_type: 'consolation',
+          match_number: matchNumber++,
+          bracket_position: consolationPosition
+        })
+        existingByPosition.set(consolationPosition, created)
+      } else {
+        await matchesApi.update(existing.id, byePayload)
+      }
+      continue
+    }
+
+    // Waiting for bye player's first real match — show Pending on the open side
+    if (byePlayerStillAliveInMain || topIsBye || bottomIsBye) {
+      const pendingPayload = {
+        player1_id: knownTop?.playerId || null,
+        player1_partner_id: knownTop?.partnerId || null,
+        player2_id: knownBottom?.playerId || null,
+        player2_partner_id: knownBottom?.partnerId || null,
+        status: 'scheduled',
+        score: null,
+        winner_id: null,
+        completed_at: null
+      }
+
+      if (!existing) {
+        const created = await matchesApi.create({
+          event_id: eventId,
+          ...pendingPayload,
+          round_name: 'Consolation Round 1',
+          bracket_type: 'consolation',
+          match_number: matchNumber++,
+          bracket_position: consolationPosition
+        })
+        existingByPosition.set(consolationPosition, created)
+      } else if (existing.score === 'Bye' || existing.status === 'walkover') {
+        // Undo premature consol Bye so seed can still drop in
+        await matchesApi.update(existing.id, pendingPayload)
+      } else {
+        await matchesApi.update(existing.id, {
+          player1_id: pendingPayload.player1_id ?? existing.player1_id,
+          player1_partner_id:
+            pendingPayload.player1_partner_id ?? existing.player1_partner_id,
+          player2_id: pendingPayload.player2_id ?? existing.player2_id,
+          player2_partner_id:
+            pendingPayload.player2_partner_id ?? existing.player2_partner_id
+        })
       }
     }
-    
-    // Create the matches in the database
-    console.log(`Creating ${consolationMatches.length} consolation matches`)
-    const createdMatches = []
-    for (const match of consolationMatches) {
-      const createdMatch = await matchesApi.create(match)
-      createdMatches.push(createdMatch)
-    }
-    
-    return createdMatches
-  } catch (error) {
-    console.error('Error generating consolation matches:', error)
-    throw error
   }
+
+  await syncNextRoundMatches(eventId, 'Consolation Round 1')
+
+  const refreshed = await matchesApi.getByEvent(eventId)
+  return refreshed.filter((match) => match.bracket_type === 'consolation')
 }
 
-// Create next round matches when current round is complete
-export async function createNextRoundMatches(eventId, completedRound) {
+// Back-compat alias
+export async function generateConsolationMatches(eventId) {
+  return syncConsolationMatches(eventId)
+}
+
+/**
+ * Progressively create/update the next round as soon as any feeding match has a winner.
+ * Missing opponents stay null and display as "Pending".
+ */
+export async function syncNextRoundMatches(eventId, fromRoundName) {
   const { matchesApi, eventsApi } = await import('./supabase.js')
-  
-  console.log(`Checking for next round creation after ${completedRound} completion`)
-  
-  try {
-    // Get all matches for the event
-    const allMatches = await matchesApi.getByEvent(eventId)
-    const event = await eventsApi.getById(eventId)
-    
-    console.log(`Total matches in event: ${allMatches.length}`)
-    
-    // Check if this is a consolation round
-    const isConsolationRound = completedRound.includes('Consolation')
-    
-    // Get completed matches from the current round
-    const currentRoundMatches = allMatches.filter(m => 
-      m.round_name === completedRound && m.status === 'completed'
+
+  const nextIsConsolation = fromRoundName.includes('Consolation')
+  const nextRoundName = getNextRoundName(fromRoundName, nextIsConsolation)
+  if (!nextRoundName) return false
+
+  const bracketType = nextIsConsolation ? 'consolation' : 'main'
+  const allMatches = await matchesApi.getByEvent(eventId)
+  const event = await eventsApi.getById(eventId)
+
+  const feeding = allMatches
+    .filter((match) => {
+      if (match.round_name !== fromRoundName) return false
+      if (nextIsConsolation) return match.bracket_type === 'consolation'
+      return match.bracket_type === 'main' || !match.bracket_type
+    })
+    .sort(
+      (a, b) =>
+        (a.bracket_position ?? a.match_number ?? 0) -
+        (b.bracket_position ?? b.match_number ?? 0)
     )
-    
-    // Check if all matches in current round are complete
-    const allCurrentRoundMatches = allMatches.filter(m => m.round_name === completedRound)
-    console.log(`${completedRound}: ${currentRoundMatches.length} completed out of ${allCurrentRoundMatches.length} total`)
-    
-    if (currentRoundMatches.length !== allCurrentRoundMatches.length) {
-      console.log('Not all matches in round are complete yet')
-      return false // Not all matches in round are complete
-    }
-    
-    console.log(`All matches in ${completedRound} are complete! Creating next round...`)
-    
-    // Get winners from current round
-    const winners = currentRoundMatches.map(match => ({
-      winnerId: match.winner_id,
-      bracketPosition: match.bracket_position
-    }))
-    
-    // Add players with byes (who advanced automatically)
-    const playersWithByes = await getPlayersWithByes(eventId, completedRound)
-    winners.push(...playersWithByes)
-    
-    // Sort by bracket position to maintain proper bracket structure
-    winners.sort((a, b) => a.bracketPosition - b.bracketPosition)
-    
-    // Create next round matches
-    const nextRoundName = getNextRoundName(completedRound, isConsolationRound)
-    if (!nextRoundName) return true // Tournament is complete
-    
-    // Check if next round matches already exist
-    const existingNextRoundMatches = allMatches.filter(m => m.round_name === nextRoundName)
-    if (existingNextRoundMatches.length > 0) {
-      console.log('Next round matches already exist')
-      return false
-    }
-    
-    const nextRoundMatches = []
-    // Get the highest match number from all matches to continue numbering
-    const maxMatchNumber = Math.max(...allMatches.map(m => m.match_number || 0))
-    let matchNumber = maxMatchNumber + 1
-    
-    for (let i = 0; i < winners.length; i += 2) {
-      if (winners[i] && winners[i + 1]) {
-        const match = {
-          event_id: eventId,
-          player1_id: winners[i].winnerId,
-          player2_id: winners[i + 1].winnerId,
-          round_name: nextRoundName,
-          bracket_type: isConsolationRound ? 'consolation' : 'main',
-          match_number: matchNumber,
-          status: 'scheduled',
-          bracket_position: Math.floor(i / 2)
-        }
-        
-        // For doubles, we need to get partner information
+
+  if (feeding.length === 0) return false
+
+  const existingNext = allMatches.filter(
+    (match) =>
+      match.round_name === nextRoundName &&
+      (nextIsConsolation
+        ? match.bracket_type === 'consolation'
+        : match.bracket_type === 'main' || !match.bracket_type)
+  )
+  const existingByPos = new Map(
+    existingNext.map((match) => [match.bracket_position, match])
+  )
+
+  let matchNumber =
+    Math.max(0, ...allMatches.map((match) => match.match_number || 0)) + 1
+  let changed = false
+
+  const maxPos = Math.max(
+    ...feeding.map((match) => match.bracket_position ?? 0),
+    0
+  )
+
+  for (let slot = 0; slot <= Math.floor(maxPos / 2); slot++) {
+    const topMatch = feeding.find((match) => match.bracket_position === slot * 2)
+    const bottomMatch = feeding.find(
+      (match) => match.bracket_position === slot * 2 + 1
+    )
+
+    const topWinner = getMatchWinnerSide(topMatch)
+    const bottomWinner = getMatchWinnerSide(bottomMatch)
+
+    // Create/update once at least one feeder has a winner
+    if (!topWinner && !bottomWinner) continue
+
+    const existing = existingByPos.get(slot)
+    if (!existing) {
+      await matchesApi.create({
+        event_id: eventId,
+        player1_id: topWinner?.playerId || null,
+        player1_partner_id: topWinner?.partnerId || null,
+        player2_id: bottomWinner?.playerId || null,
+        player2_partner_id: bottomWinner?.partnerId || null,
+        round_name: nextRoundName,
+        bracket_type: bracketType,
+        // Stable relative to bracket slot so UI order never depends on bye timing
+        match_number: matchNumber + slot,
+        status: 'scheduled',
+        bracket_position: slot
+      })
+      changed = true
+    } else if (existing.status === 'scheduled') {
+      const updates = {}
+      if (topWinner && existing.player1_id !== topWinner.playerId) {
+        updates.player1_id = topWinner.playerId
         if (event.event_type === 'doubles') {
-          const player1Match = currentRoundMatches.find(m => m.winner_id === winners[i].winnerId)
-          const player2Match = currentRoundMatches.find(m => m.winner_id === winners[i + 1].winnerId)
-          
-          if (player1Match) {
-            match.player1_partner_id = player1Match.winner_id === player1Match.player1_id 
-              ? player1Match.player1_partner_id 
-              : player1Match.player2_partner_id
-          }
-          
-          if (player2Match) {
-            match.player2_partner_id = player2Match.winner_id === player2Match.player1_id 
-              ? player2Match.player1_partner_id 
-              : player2Match.player2_partner_id
-          }
+          updates.player1_partner_id = topWinner.partnerId
         }
-        
-        nextRoundMatches.push(match)
-        matchNumber++
+      }
+      if (bottomWinner && existing.player2_id !== bottomWinner.playerId) {
+        updates.player2_id = bottomWinner.playerId
+        if (event.event_type === 'doubles') {
+          updates.player2_partner_id = bottomWinner.partnerId
+        }
+      }
+      if (Object.keys(updates).length > 0) {
+        await matchesApi.update(existing.id, updates)
+        changed = true
       }
     }
-    
-    // Create the matches in the database
-    console.log(`Creating ${nextRoundMatches.length} matches for ${nextRoundName}`)
-    for (const match of nextRoundMatches) {
-      console.log('Creating match:', match)
-      await matchesApi.create(match)
-    }
-    
-    console.log(`Successfully created ${nextRoundMatches.length} matches for ${nextRoundName}`)
-    return true
+  }
+
+  return changed
+}
+
+// Create / refresh next round matches after a result (progressive)
+export async function createNextRoundMatches(eventId, completedRound) {
+  try {
+    return await syncNextRoundMatches(eventId, completedRound)
   } catch (error) {
-    console.error('Error creating next round matches:', error)
+    console.error('Error syncing next round matches:', error)
     return false
   }
-}
-
-// Get players who received byes in a round
-async function getPlayersWithByes(eventId, roundName) {
-  // This would need to be implemented based on how we track byes
-  // For now, return empty array
-  return []
 }
 
 // Get the next round name
 function getNextRoundName(currentRound, isConsolationRound = false) {
   if (isConsolationRound) {
-    // Handle consolation round progression
     if (currentRound === 'Consolation Round 1') {
       return 'Consolation Semi-Final'
     } else if (currentRound === 'Consolation Semi-Final') {
       return 'Consolation Final'
     } else if (currentRound === 'Consolation Final') {
-      return null // Consolation tournament complete
+      return null
     }
     return null
   }
@@ -581,7 +920,7 @@ function getNextRoundName(currentRound, isConsolationRound = false) {
   
   const currentIndex = roundOrder.indexOf(currentRound)
   if (currentIndex === -1 || currentIndex === roundOrder.length - 1) {
-    return null // No next round or tournament complete
+    return null
   }
   
   return roundOrder[currentIndex + 1]

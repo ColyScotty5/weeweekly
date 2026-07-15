@@ -703,14 +703,10 @@ body {
     margin-left: 10px;
 }
 
-.score-display {
-    padding: 8px 15px;
-    background: #e9ecef;
-    border-top: 1px solid #ddd;
-    text-align: center;
-    font-size: 0.9em;
-    font-weight: bold;
+.winner-score {
+    font-weight: 600;
     color: #495057;
+    white-space: nowrap;
 }
 
 /* Bracket Connection Lines */

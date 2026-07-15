@@ -43,6 +43,7 @@ export const rankingsApi = {
         event:events!event_participants_event_id_fkey(
           id,
           event_type,
+          status,
           tournament:tournaments!events_tournament_id_fkey(tournament_date)
         )
       `)
@@ -51,7 +52,9 @@ export const rankingsApi = {
 
     const aggregated = new Map()
     for (const row of data || []) {
-      if (!row.event || row.event.event_type !== eventType) continue
+      // Only completed events count toward leaderboards and seeding
+      if (!row.event || row.event.status !== 'completed') continue
+      if (row.event.event_type !== eventType) continue
       const tournamentDate = row.event.tournament?.tournament_date
       if (!tournamentDate || tournamentDate < cutoffStr) continue
       const player = row.player

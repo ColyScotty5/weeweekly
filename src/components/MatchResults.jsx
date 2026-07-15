@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'preact/hooks'
 import { matchesApi, resultsApi, eventsApi } from '../lib/supabase.js'
-import { calculatePoints, createNextRoundMatches } from '../lib/tournamentUtils.js'
+import { calculatePoints, createNextRoundMatches, syncConsolationMatches } from '../lib/tournamentUtils.js'
 
 export default function MatchResults({ eventId }) {
   const [matches, setMatches] = useState([])
@@ -102,6 +102,15 @@ export default function MatchResults({ eventId }) {
         } catch (error) {
           console.error('Error creating next round matches:', error)
           // Don't fail the whole operation if next round creation fails
+        }
+
+        // Mirror first-round losers into consolation (match 1 loser vs match 2 loser, etc.)
+        if (match.bracket_type === 'main' || !match.bracket_type) {
+          try {
+            await syncConsolationMatches(eventId)
+          } catch (error) {
+            console.error('Error syncing consolation matches:', error)
+          }
         }
       }
 
