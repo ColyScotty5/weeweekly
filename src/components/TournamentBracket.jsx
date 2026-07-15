@@ -432,14 +432,6 @@ function MatchCard({ match, matchIndex, roundIndex, eventType, eventStatus, onUp
               </div>
             </div>
           </div>
-          {match.player1 && (
-            <div className="player-ranking">
-              Rank: {eventType === 'singles' 
-                ? match.player1.singles_ranking_points?.toFixed(1) || '0.0'
-                : match.player1.doubles_ranking_points?.toFixed(1) || '0.0'
-              }
-            </div>
-          )}
         </div>
         {match.winner_id === match.player1_id && (
           <div className="winner-check">✓</div>
@@ -470,14 +462,6 @@ function MatchCard({ match, matchIndex, roundIndex, eventType, eventStatus, onUp
               </div>
             </div>
           </div>
-          {match.player2 && (
-            <div className="player-ranking">
-              Rank: {eventType === 'singles' 
-                ? match.player2.singles_ranking_points?.toFixed(1) || '0.0'
-                : match.player2.doubles_ranking_points?.toFixed(1) || '0.0'
-              }
-            </div>
-          )}
         </div>
         {match.winner_id === match.player2_id && (
           <div className="winner-check">✓</div>

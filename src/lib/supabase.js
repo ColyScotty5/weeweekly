@@ -1,13 +1,107 @@
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co'
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-key'
+// Prefer newer publishable key name; fall back to legacy anon key env var
+const supabaseKey =
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  'placeholder-key'
 
-if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+if (
+  !import.meta.env.VITE_SUPABASE_URL ||
+  (!import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY && !import.meta.env.VITE_SUPABASE_ANON_KEY)
+) {
   console.warn('⚠️  Supabase environment variables not set. Please create a .env file with your Supabase credentials.')
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(supabaseUrl, supabaseKey)
+
+/** CD / rank points for the rolling leaderboard */
+export function computeRankMetrics(totalPoints, eventsPlayed) {
+  const cd = eventsPlayed > 0 ? 1.5 + eventsPlayed * 0.5 : 0
+  const rankPoints = cd > 0 ? totalPoints / cd : 0
+  return { cd, rankPoints }
+}
+
+function cutoffDateISO(withinMonths = 12) {
+  const cutoff = new Date()
+  cutoff.setMonth(cutoff.getMonth() - withinMonths)
+  return cutoff.toISOString().slice(0, 10)
+}
+
+// Rolling rankings from event_participants.points_earned (last 12 months by default)
+export const rankingsApi = {
+  async getRollingLeaderboard(eventType = 'singles', withinMonths = 12) {
+    const cutoffStr = cutoffDateISO(withinMonths)
+
+    const { data, error } = await supabase
+      .from('event_participants')
+      .select(`
+        player_id,
+        points_earned,
+        player:players!event_participants_player_id_fkey(id, name, email),
+        event:events!event_participants_event_id_fkey(
+          id,
+          event_type,
+          tournament:tournaments!events_tournament_id_fkey(tournament_date)
+        )
+      `)
+
+    if (error) throw error
+
+    const aggregated = new Map()
+    for (const row of data || []) {
+      if (!row.event || row.event.event_type !== eventType) continue
+      const tournamentDate = row.event.tournament?.tournament_date
+      if (!tournamentDate || tournamentDate < cutoffStr) continue
+      const player = row.player
+      if (!player) continue
+
+      const current = aggregated.get(player.id) || {
+        id: player.id,
+        name: player.name,
+        email: player.email,
+        totalPoints: 0,
+        eventsPlayed: 0
+      }
+      current.totalPoints += row.points_earned || 0
+      current.eventsPlayed += 1
+      aggregated.set(player.id, current)
+    }
+
+    const list = [...aggregated.values()].map((player) => {
+      const { cd, rankPoints } = computeRankMetrics(player.totalPoints, player.eventsPlayed)
+      return {
+        ...player,
+        cd,
+        rankPoints,
+        isRanked: player.eventsPlayed > 0
+      }
+    })
+
+    list.sort(
+      (a, b) =>
+        b.rankPoints - a.rankPoints ||
+        b.totalPoints - a.totalPoints ||
+        a.name.localeCompare(b.name)
+    )
+
+    let currentRank = 1
+    for (let i = 0; i < list.length; i++) {
+      if (i > 0 && list[i].rankPoints < list[i - 1].rankPoints) {
+        currentRank = i + 1
+      }
+      list[i].rank = currentRank
+    }
+
+    return list
+  },
+
+  async getMap(eventType = 'singles', withinMonths = 12) {
+    const list = await this.getRollingLeaderboard(eventType, withinMonths)
+    return new Map(list.map((player) => [player.id, player]))
+  }
+}
 
 // Players table operations
 export const playersApi = {
@@ -22,16 +116,33 @@ export const playersApi = {
     return data
   },
 
-  // Get players with rankings (sorted by singles ranking points)
+  // Players merged with rolling ranking stats (sorted by rank points)
   async getAllWithRankings(eventType = 'singles') {
-    const orderColumn = eventType === 'singles' ? 'singles_ranking_points' : 'doubles_ranking_points'
-    const { data, error } = await supabase
-      .from('players')
-      .select('*')
-      .order(orderColumn, { ascending: false })
-    
-    if (error) throw error
-    return data
+    const [players, leaderboard] = await Promise.all([
+      this.getAll(),
+      rankingsApi.getRollingLeaderboard(eventType)
+    ])
+    const byId = new Map(leaderboard.map((entry) => [entry.id, entry]))
+
+    return players
+      .map((player) => {
+        const ranked = byId.get(player.id)
+        return {
+          ...player,
+          totalPoints: ranked?.totalPoints || 0,
+          eventsPlayed: ranked?.eventsPlayed || 0,
+          cd: ranked?.cd || 0,
+          rankPoints: ranked?.rankPoints || 0,
+          rank: ranked?.rank || null,
+          isRanked: ranked?.isRanked || false
+        }
+      })
+      .sort(
+        (a, b) =>
+          b.rankPoints - a.rankPoints ||
+          b.totalPoints - a.totalPoints ||
+          a.name.localeCompare(b.name)
+      )
   },
 
   // Get player by ID
@@ -63,27 +174,6 @@ export const playersApi = {
     const { data, error } = await supabase
       .from('players')
       .update(updates)
-      .eq('id', id)
-      .select()
-      .single()
-    
-    if (error) throw error
-    return data
-  },
-
-  // Update player rankings and stats
-  async updateStats(id, stats) {
-    const { data, error } = await supabase
-      .from('players')
-      .update({
-        total_singles_points: stats.total_singles_points,
-        total_doubles_points: stats.total_doubles_points,
-        singles_events_played: stats.singles_events_played,
-        doubles_events_played: stats.doubles_events_played,
-        singles_ranking_points: stats.singles_ranking_points,
-        doubles_ranking_points: stats.doubles_ranking_points,
-        updated_at: new Date().toISOString()
-      })
       .eq('id', id)
       .select()
       .single()
@@ -312,6 +402,19 @@ export const participantsApi = {
       .select()
       .single()
     
+    if (error) throw error
+    return data
+  },
+
+  // Update participant fields (seed, points, status, etc.)
+  async update(id, updates) {
+    const { data, error } = await supabase
+      .from('event_participants')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
     if (error) throw error
     return data
   },

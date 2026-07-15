@@ -41,38 +41,48 @@ export const POINTS_SYSTEM = {
 }
 
 // Generate singles draw
-export function generateSinglesDraw(participants) {
+// Top 25% of the field may be seeded, chosen only from ranked players (last-12-month points)
+export function generateSinglesDraw(participants, rankingsByPlayerId = new Map()) {
   const totalPlayers = participants.length
-  
+
   // Find the next power of 2 that accommodates all players
   const drawSize = Math.pow(2, Math.ceil(Math.log2(totalPlayers)))
-  
-  // Sort participants by ranking (best players first for seeding)
-  const sortedParticipants = [...participants].sort((a, b) => {
-    const aRanking = a.player?.singles_ranking_points || 0
-    const bRanking = b.player?.singles_ranking_points || 0
-    return bRanking - aRanking // Higher ranking points = better player
+
+  const enriched = participants.map((participant) => {
+    const ranking = rankingsByPlayerId.get(participant.player_id)
+    return {
+      ...participant,
+      _rankPoints: ranking?.rankPoints || 0,
+      _isRanked: Boolean(ranking?.isRanked)
+    }
   })
-  
-  // For singles, top 1/4 get seeded
+
+  const ranked = enriched
+    .filter((participant) => participant._isRanked)
+    .sort((a, b) => b._rankPoints - a._rankPoints)
+  const unranked = enriched.filter((participant) => !participant._isRanked)
+
   const maxSeeds = Math.floor(totalPlayers / 4)
-  const actualSeeds = Math.min(maxSeeds, totalPlayers)
-  
-  // Assign seed positions to top players
-  const seededPlayers = sortedParticipants.slice(0, actualSeeds).map((p, index) => ({
-    ...p,
+  const seededPlayers = ranked.slice(0, maxSeeds).map((participant, index) => ({
+    ...participant,
     seed_position: index + 1
   }))
-  
-  // Remaining players are unseeded
-  const unseededPlayers = sortedParticipants.slice(actualSeeds)
-  
+  const seededIds = new Set(seededPlayers.map((participant) => participant.player_id))
+
+  const unseededPlayers = [
+    ...ranked.filter((participant) => !seededIds.has(participant.player_id)),
+    ...unranked
+  ].map((participant) => ({
+    ...participant,
+    seed_position: null
+  }))
+
   // Shuffle unseeded players
   const shuffledUnseeded = [...unseededPlayers].sort(() => Math.random() - 0.5)
-  
+
   // Create bracket positions array
   const bracket = new Array(drawSize).fill(null)
-  
+
   // Place seeded players in standard positions
   const seedPositions = getStandardSeedPositions(drawSize)
   for (let i = 0; i < seededPlayers.length; i++) {
@@ -80,7 +90,7 @@ export function generateSinglesDraw(participants) {
       bracket[seedPositions[i]] = seededPlayers[i]
     }
   }
-  
+
   // Fill remaining positions with unseeded players
   let unseededIndex = 0
   for (let i = 0; i < drawSize && unseededIndex < shuffledUnseeded.length; i++) {
@@ -89,38 +99,63 @@ export function generateSinglesDraw(participants) {
       unseededIndex++
     }
   }
-  
+
   // Calculate number of byes (empty positions that advance automatically)
   const numberOfByes = drawSize - totalPlayers
-  
+
   return {
     bracket,
     drawSize,
     totalPlayers,
-    seededCount: actualSeeds,
+    seededCount: seededPlayers.length,
     numberOfByes,
-    firstRoundMatches: Math.floor((totalPlayers + 1) / 2) // Actual matches in first round
+    firstRoundMatches: Math.floor((totalPlayers + 1) / 2), // Actual matches in first round
+    seededPlayers,
+    unseededPlayers: shuffledUnseeded
   }
 }
 
 // Generate doubles draw with partner assignments
-export function generateDoublesDraw(participants) {
+// Half the field may be seeded from ranked players; remaining players randomly partnered with seeds
+export function generateDoublesDraw(participants, rankingsByPlayerId = new Map()) {
   const totalPlayers = participants.length
-  
-  // For doubles, half get seeded, half get randomly assigned as partners
-  const seededPlayers = participants.filter(p => p.seed_position).sort((a, b) => a.seed_position - b.seed_position)
-  const unseededPlayers = participants.filter(p => !p.seed_position)
-  
+
+  const enriched = participants.map((participant) => {
+    const ranking = rankingsByPlayerId.get(participant.player_id)
+    return {
+      ...participant,
+      _rankPoints: ranking?.rankPoints || 0,
+      _isRanked: Boolean(ranking?.isRanked)
+    }
+  })
+
+  const ranked = enriched
+    .filter((participant) => participant._isRanked)
+    .sort((a, b) => b._rankPoints - a._rankPoints)
+  const unranked = enriched.filter((participant) => !participant._isRanked)
+
   const maxSeeds = Math.floor(totalPlayers / 2)
-  const actualSeeds = Math.min(seededPlayers.length, maxSeeds)
-  
-  // Shuffle unseeded players for partner assignment
-  const shuffledUnseeded = [...unseededPlayers].sort(() => Math.random() - 0.5)
-  
+  // If fewer ranked than half, seed only the ranked players; rest are randomized
+  const seededPlayers = ranked.slice(0, maxSeeds).map((participant, index) => ({
+    ...participant,
+    seed_position: index + 1
+  }))
+  const seededIds = new Set(seededPlayers.map((participant) => participant.player_id))
+
+  const poolForPartners = [
+    ...ranked.filter((participant) => !seededIds.has(participant.player_id)),
+    ...unranked
+  ].map((participant) => ({
+    ...participant,
+    seed_position: null
+  }))
+
+  const shuffledUnseeded = [...poolForPartners].sort(() => Math.random() - 0.5)
+
   // Create teams by pairing seeded players with unseeded players
   const teams = []
-  
-  for (let i = 0; i < actualSeeds; i++) {
+
+  for (let i = 0; i < seededPlayers.length; i++) {
     if (seededPlayers[i] && shuffledUnseeded[i]) {
       teams.push({
         player1: seededPlayers[i],
@@ -129,9 +164,9 @@ export function generateDoublesDraw(participants) {
       })
     }
   }
-  
+
   // If there are remaining unseeded players, pair them up
-  const remainingUnseeded = shuffledUnseeded.slice(actualSeeds)
+  const remainingUnseeded = shuffledUnseeded.slice(seededPlayers.length)
   for (let i = 0; i < remainingUnseeded.length - 1; i += 2) {
     teams.push({
       player1: remainingUnseeded[i],
@@ -139,14 +174,16 @@ export function generateDoublesDraw(participants) {
       seed_position: null
     })
   }
-  
-  const drawSize = Math.pow(2, Math.ceil(Math.log2(teams.length)))
-  
+
+  const drawSize = Math.pow(2, Math.ceil(Math.log2(Math.max(teams.length, 1))))
+
   return {
     teams,
     drawSize,
     totalTeams: teams.length,
-    seededCount: actualSeeds
+    seededCount: seededPlayers.length,
+    seededPlayers,
+    unseededPlayers: shuffledUnseeded
   }
 }
 
@@ -550,43 +587,8 @@ function getNextRoundName(currentRound, isConsolationRound = false) {
   return roundOrder[currentIndex + 1]
 }
 
-// Update player statistics after a tournament
-export async function updatePlayerStats(playerId, newResults, eventType) {
-  const { playersApi, resultsApi } = await import('./supabase.js')
-  
-  try {
-    // Get current player data
-    const player = await playersApi.getById(playerId)
-    
-    // Get all results for this player
-    const allResults = await resultsApi.getByPlayer(playerId)
-    
-    // Calculate new totals
-    const singlesResults = allResults.filter(r => r.match?.event?.event_type === 'singles')
-    const doublesResults = allResults.filter(r => r.match?.event?.event_type === 'doubles')
-    
-    const totalSinglesPoints = singlesResults.reduce((sum, r) => sum + r.points_earned, 0)
-    const totalDoublesPoints = doublesResults.reduce((sum, r) => sum + r.points_earned, 0)
-    
-    const singlesEvents = new Set(singlesResults.map(r => r.match?.event?.id)).size
-    const doublesEvents = new Set(doublesResults.map(r => r.match?.event?.id)).size
-    
-    const singlesRankingPoints = calculateRankingPoints(singlesResults, 'singles')
-    const doublesRankingPoints = calculateRankingPoints(doublesResults, 'doubles')
-    
-    // Update player stats
-    await playersApi.updateStats(playerId, {
-      total_singles_points: totalSinglesPoints,
-      total_doubles_points: totalDoublesPoints,
-      singles_events_played: singlesEvents,
-      doubles_events_played: doublesEvents,
-      singles_ranking_points: singlesRankingPoints,
-      doubles_ranking_points: doublesRankingPoints
-    })
-    
-    return true
-  } catch (error) {
-    console.error('Error updating player stats:', error)
-    return false
-  }
+// Rankings are derived from event_participants over the last 12 months.
+// Kept as a no-op for callers that still invoke it after match results.
+export async function updatePlayerStats() {
+  return true
 }

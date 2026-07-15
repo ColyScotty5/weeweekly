@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'preact/hooks'
 import { matchesApi, resultsApi, eventsApi } from '../lib/supabase.js'
-import { calculatePoints, updatePlayerStats, createNextRoundMatches } from '../lib/tournamentUtils.js'
+import { calculatePoints, createNextRoundMatches } from '../lib/tournamentUtils.js'
 
 export default function MatchResults({ eventId }) {
   const [matches, setMatches] = useState([])
@@ -93,13 +93,8 @@ export default function MatchResults({ eventId }) {
           })
         }
 
-        // Record results in database
+        // Record results in database (match log). Event totals are awarded on Complete Event.
         await resultsApi.recordResults(matchId, results)
-
-        // Update player statistics
-        for (const playerResult of results) {
-          await updatePlayerStats(playerResult.player_id, [playerResult], event.event_type)
-        }
 
         // Check if this round is complete and create next round matches
         try {
@@ -261,14 +256,6 @@ function MatchCard({ match, eventType, onRecordResult, loading, isSelected, onSe
           <div style={{ fontWeight: 'bold' }}>
             {getPlayerDisplay(match.player1, match.player1_partner)}
           </div>
-          {match.player1 && (
-            <div style={{ fontSize: '0.8em', color: '#666' }}>
-              Ranking: {eventType === 'singles' 
-                ? match.player1.singles_ranking_points?.toFixed(2) || '0.00'
-                : match.player1.doubles_ranking_points?.toFixed(2) || '0.00'
-              }
-            </div>
-          )}
         </div>
 
         <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '1.2em' }}>
@@ -293,14 +280,6 @@ function MatchCard({ match, eventType, onRecordResult, loading, isSelected, onSe
           <div style={{ fontWeight: 'bold' }}>
             {getPlayerDisplay(match.player2, match.player2_partner)}
           </div>
-          {match.player2 && (
-            <div style={{ fontSize: '0.8em', color: '#666' }}>
-              Ranking: {eventType === 'singles' 
-                ? match.player2.singles_ranking_points?.toFixed(2) || '0.00'
-                : match.player2.doubles_ranking_points?.toFixed(2) || '0.00'
-              }
-            </div>
-          )}
         </div>
       </div>
 

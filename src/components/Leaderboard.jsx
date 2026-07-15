@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'preact/hooks'
-import { playersApi } from '../lib/supabase.js'
+import { rankingsApi } from '../lib/supabase.js'
 import Avatar from './Avatar.jsx'
 import { getUserAvatarByEmail } from '../contexts/AuthContext.jsx'
 
@@ -16,53 +16,10 @@ export default function Leaderboard({ type, onClose }) {
     setLoading(true)
     setError(null)
     try {
-      const data = await playersApi.getAll()
-      
-      // Calculate rankings for each player
-      const playersWithRankings = data.map(player => {
-        let eventsPlayed, totalPoints
-        
-        if (type === 'singles') {
-          eventsPlayed = player.singles_events_played || 0
-          totalPoints = player.total_singles_points || 0
-        } else {
-          eventsPlayed = player.doubles_events_played || 0
-          totalPoints = player.total_doubles_points || 0
-        }
-        
-        // Calculate CD = 1.5(events_played * 0.5) = 0.75 * events_played
-        const cd = eventsPlayed > 0 ? 1.5 + (eventsPlayed * 0.5) : 0
-        
-        // Calculate Rank Points = total_points / CD
-        const rankPoints = cd > 0 ? totalPoints / cd : 0
-        
-        return {
-          ...player,
-          eventsPlayed,
-          totalPoints,
-          cd,
-          rankPoints
-        }
-      })
-      
-      // Filter out players with no events played
-      const activePlayers = playersWithRankings.filter(p => p.eventsPlayed > 0)
-      
-      // Sort by rank points (descending)
-      activePlayers.sort((a, b) => b.rankPoints - a.rankPoints)
-      
-      // Assign ranks (handling ties)
-      let currentRank = 1
-      for (let i = 0; i < activePlayers.length; i++) {
-        if (i > 0 && activePlayers[i].rankPoints < activePlayers[i - 1].rankPoints) {
-          currentRank = i + 1
-        }
-        activePlayers[i].rank = currentRank
-      }
-      
-      setPlayers(activePlayers)
+      const data = await rankingsApi.getRollingLeaderboard(type)
+      setPlayers(data)
     } catch (err) {
-      console.error('Error loading players:', err)
+      console.error('Error loading leaderboard:', err)
       setError(err.message)
     } finally {
       setLoading(false)
@@ -181,7 +138,7 @@ export default function Leaderboard({ type, onClose }) {
               padding: '40px',
               color: 'var(--text-secondary)'
             }}>
-              No players have competed in {type} events yet.
+              No players have competed in {type} events in the last 12 months.
             </div>
           )}
 
@@ -241,7 +198,7 @@ export default function Leaderboard({ type, onClose }) {
                       fontSize: '14px',
                       width: '120px'
                     }}>
-                      Total Matches
+                      Events
                     </th>
                     <th style={{ 
                       padding: '16px 12px', 
@@ -354,8 +311,7 @@ export default function Leaderboard({ type, onClose }) {
             lineHeight: '1.5'
           }}>
             <strong>How rankings work:</strong><br/>
-            CD (Countable Days) = 1.5 × (Events Played × 0.5) | 
-            Rank Points = Total Points ÷ CD
+            Last 12 months of event results only. CD = 1.5 + (Events × 0.5). Rank Points = Total Points ÷ CD.
           </div>
         </div>
       </div>

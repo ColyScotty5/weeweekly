@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'preact/hooks'
-import { tournamentsApi, eventsApi, playersApi, participantsApi, matchesApi } from '../lib/supabase.js'
+import { tournamentsApi, eventsApi, playersApi, participantsApi, matchesApi, rankingsApi } from '../lib/supabase.js'
 import { generateSinglesDraw, generateDoublesDraw, generateMatches, POINTS_SYSTEM } from '../lib/tournamentUtils.js'
 import TournamentBracket from './TournamentBracket.jsx'
 import Avatar from './Avatar.jsx'
@@ -581,6 +581,20 @@ function TournamentDetails({ tournament, players, onUpdate, onEditEvent }) {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [eventMatches, setEventMatches] = useState({})
+  const [rankingMaps, setRankingMaps] = useState({ singles: new Map(), doubles: new Map() })
+
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([
+      rankingsApi.getMap('singles'),
+      rankingsApi.getMap('doubles')
+    ])
+      .then(([singles, doubles]) => {
+        if (!cancelled) setRankingMaps({ singles, doubles })
+      })
+      .catch((error) => console.error('Error loading rankings:', error))
+    return () => { cancelled = true }
+  }, [tournament?.id])
 
   // Load matches for an event to check completion status
   const loadEventMatches = async (eventId) => {
@@ -613,13 +627,37 @@ function TournamentDetails({ tournament, players, onUpdate, onEditEvent }) {
         return
       }
 
+      const rankingsByPlayerId = await rankingsApi.getMap(eventType)
+
       let draw, matches
       if (eventType === 'singles') {
-        draw = generateSinglesDraw(participants)
+        draw = generateSinglesDraw(participants, rankingsByPlayerId)
         matches = generateMatches(eventId, draw, 'singles')
       } else {
-        draw = generateDoublesDraw(participants)
+        draw = generateDoublesDraw(participants, rankingsByPlayerId)
         matches = generateMatches(eventId, draw, 'doubles')
+      }
+
+      // Persist seed positions on participants
+      const seedUpdates = new Map()
+      if (eventType === 'singles') {
+        for (const slot of draw.bracket || []) {
+          if (slot?.id) {
+            seedUpdates.set(slot.id, slot.seed_position || null)
+          }
+        }
+      } else {
+        for (const team of draw.teams || []) {
+          if (team.player1?.id) {
+            seedUpdates.set(team.player1.id, team.seed_position || null)
+          }
+          if (team.player2?.id) {
+            seedUpdates.set(team.player2.id, null)
+          }
+        }
+      }
+      for (const [participantId, seedPosition] of seedUpdates.entries()) {
+        await participantsApi.update(participantId, { seed_position: seedPosition })
       }
 
       // Create matches in database
@@ -633,7 +671,7 @@ function TournamentDetails({ tournament, players, onUpdate, onEditEvent }) {
         draw_structure: draw
       })
 
-      setMessage('✅ Draw generated successfully!')
+      setMessage(`✅ Draw generated successfully! (${draw.seededCount || 0} seeded)`)
       // Load matches for the event to enable completion checking
       await loadEventMatches(eventId)
       onUpdate()
@@ -655,12 +693,11 @@ function TournamentDetails({ tournament, players, onUpdate, onEditEvent }) {
         return
       }
 
-      // Calculate points for each participant
+      // Award points onto event_participants (source of truth for rankings)
       const participants = event.event_participants || []
       const pointsSystem = POINTS_SYSTEM[event.event_type]?.main || {}
       
       for (const participant of participants) {
-        // Find the participant's best result in the tournament
         const playerMatches = matches.filter(match => 
           match.player1_id === participant.player_id || 
           match.player2_id === participant.player_id ||
@@ -668,40 +705,19 @@ function TournamentDetails({ tournament, players, onUpdate, onEditEvent }) {
           match.player2_partner_id === participant.player_id
         )
 
-        // Determine the furthest round reached
         const furthestRound = calculateFurthestRound(playerMatches, participant.player_id)
         const pointsEarned = pointsSystem[furthestRound] || 0
 
-        // Update player's ranking points
-        if (pointsEarned > 0) {
-          const currentPlayer = await playersApi.getById(participant.player_id)
-          const currentRankingPoints = event.event_type === 'singles' 
-            ? currentPlayer.singles_ranking_points || 0
-            : currentPlayer.doubles_ranking_points || 0
-
-          // Simple ranking calculation: average of recent results (you may want to refine this)
-          const newRankingPoints = (currentRankingPoints + pointsEarned) / 2
-
-          const updateData = event.event_type === 'singles' 
-            ? { 
-                singles_ranking_points: newRankingPoints,
-                total_singles_points: (currentPlayer.total_singles_points || 0) + pointsEarned,
-                singles_events_played: (currentPlayer.singles_events_played || 0) + 1
-              }
-            : { 
-                doubles_ranking_points: newRankingPoints,
-                total_doubles_points: (currentPlayer.total_doubles_points || 0) + pointsEarned,
-                doubles_events_played: (currentPlayer.doubles_events_played || 0) + 1
-              }
-
-          await playersApi.update(participant.player_id, updateData)
-        }
+        await participantsApi.update(participant.id, {
+          points_earned: pointsEarned,
+          status: furthestRound === 'winner' ? 'active' : 'eliminated'
+        })
       }
 
       // Update event status to completed
       await eventsApi.update(event.id, { status: 'completed' })
 
-      setMessage('✅ Event completed successfully! Points have been awarded to all players.')
+      setMessage('✅ Event completed successfully! Points saved for all participants.')
       onUpdate()
     } catch (error) {
       console.error('Error completing event:', error)
@@ -966,7 +982,10 @@ function TournamentDetails({ tournament, players, onUpdate, onEditEvent }) {
           </div>
 
           {selectedEvent === event.id && (
-            <EventDetails event={event} />
+            <EventDetails
+              event={event}
+              playersById={rankingMaps[event.event_type] || new Map()}
+            />
           )}
 
           {bracketView === event.id && (
@@ -997,13 +1016,18 @@ function TournamentDetails({ tournament, players, onUpdate, onEditEvent }) {
   )
 }
 
-function EventDetails({ event }) {
+function EventDetails({ event, playersById = new Map() }) {
   return (
     <div className="event-details">
       <h6>Participants:</h6>
       {event.event_participants?.length > 0 ? (
         <div className="participants-grid">
-          {event.event_participants.map(participant => (
+          {event.event_participants.map(participant => {
+            const ranking = playersById.get(participant.player_id)
+            const partnerRanking = participant.partner_id
+              ? playersById.get(participant.partner_id)
+              : null
+            return (
             <div key={participant.id} className="participant-card">
               <div className="participant-header">
                 <Avatar 
@@ -1024,10 +1048,10 @@ function EventDetails({ event }) {
               </div>
               {participant.player && (
                 <div className="participant-rank">
-                  Rank: {event.event_type === 'singles' 
-                    ? participant.player.singles_ranking_points?.toFixed(2) || '0.00'
-                    : participant.player.doubles_ranking_points?.toFixed(2) || '0.00'
-                  } pts
+                  Rank pts: {(ranking?.rankPoints ?? 0).toFixed(2)}
+                  {typeof participant.points_earned === 'number' && (
+                    <> · Event pts: {participant.points_earned}</>
+                  )}
                 </div>
               )}
               {participant.partner && (
@@ -1040,14 +1064,9 @@ function EventDetails({ event }) {
                     />
                     <div className="partner-info">
                       <span className="partner-name">Partner: {participant.partner.name}</span>
-                      {participant.partner && (
-                        <span className="participant-partner-rank">
-                          ({event.event_type === 'doubles' 
-                            ? participant.partner.doubles_ranking_points?.toFixed(2) || '0.00'
-                            : participant.partner.singles_ranking_points?.toFixed(2) || '0.00'
-                          } pts)
-                        </span>
-                      )}
+                      <span className="participant-partner-rank">
+                        ({(partnerRanking?.rankPoints ?? 0).toFixed(2)} pts)
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1056,7 +1075,8 @@ function EventDetails({ event }) {
                 Status: {participant.status}
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       ) : (
         <p className="no-participants">No participants registered yet</p>
@@ -1069,6 +1089,17 @@ function RegistrationManager({ event, players, onClose, onUpdate }) {
   const [selectedPlayers, setSelectedPlayers] = useState([])
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [rankedPlayers, setRankedPlayers] = useState(players)
+
+  useEffect(() => {
+    let cancelled = false
+    playersApi.getAllWithRankings(event.event_type)
+      .then((data) => {
+        if (!cancelled) setRankedPlayers(data)
+      })
+      .catch((error) => console.error('Error loading ranked players:', error))
+    return () => { cancelled = true }
+  }, [event.event_type])
 
   const registerPlayers = async () => {
     setLoading(true)
@@ -1088,7 +1119,7 @@ function RegistrationManager({ event, players, onClose, onUpdate }) {
   }
 
   const registeredPlayerIds = event.event_participants?.map(p => p.player_id) || []
-  const availablePlayers = players.filter(p => !registeredPlayerIds.includes(p.id))
+  const availablePlayers = rankedPlayers.filter(p => !registeredPlayerIds.includes(p.id))
 
   return (
     <div style={{
@@ -1156,7 +1187,7 @@ function RegistrationManager({ event, players, onClose, onUpdate }) {
                 }}
                 style={{ marginRight: '8px' }}
               />
-              {player.name} (Ranking: {player.singles_ranking_points?.toFixed(2) || '0.00'})
+              {player.name} (Rank pts: {(player.rankPoints ?? 0).toFixed(2)})
             </label>
           ))}
         </div>
