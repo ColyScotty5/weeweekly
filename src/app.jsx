@@ -1,176 +1,165 @@
-import { h } from 'preact';
-import { useState, useEffect } from 'preact/hooks';
-import TournamentManager from './components/TournamentManager';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import AuthGuard from './components/AuthGuard';
-import Profile from './components/Profile';
-import Avatar from './components/Avatar';
-import Leaderboard from './components/Leaderboard';
+import { useState } from 'react'
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Button,
+  IconButton,
+  Stack,
+  Box,
+  Container,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Tooltip
+} from '@mui/material'
+import SportsTennisIcon from '@mui/icons-material/SportsTennis'
+import DarkModeIcon from '@mui/icons-material/DarkMode'
+import LightModeIcon from '@mui/icons-material/LightMode'
+import LogoutIcon from '@mui/icons-material/Logout'
+import { ThemeProvider, useColorScheme } from '@mui/material/styles'
+import CssBaseline from '@mui/material/CssBaseline'
+import { theme } from './theme'
+import TournamentManager from './components/TournamentManager'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
+import AuthGuard from './components/AuthGuard'
+import Profile from './components/Profile'
+import Avatar from './components/Avatar'
+import Leaderboard from './components/Leaderboard'
 
-const AppContent = () => {
-    const [isDarkMode, setIsDarkMode] = useState(false);
-    const [showProfile, setShowProfile] = useState(false);
-    const [showLeaderboard, setShowLeaderboard] = useState(null); // 'singles' | 'doubles' | null
-    const { user, logout } = useAuth();
+function ThemeToggle() {
+  const { mode, setMode, systemMode } = useColorScheme()
+  const resolvedMode = mode === 'system' ? systemMode : mode
+  const isDark = resolvedMode === 'dark'
 
-    // Load theme preference from localStorage on mount
-    useEffect(() => {
-        const savedTheme = localStorage.getItem('theme');
-        if (savedTheme) {
-            setIsDarkMode(savedTheme === 'dark');
-        } else {
-            // Check system preference
-            setIsDarkMode(window.matchMedia('(prefers-color-scheme: dark)').matches);
-        }
-    }, []);
+  return (
+    <Tooltip title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
+      <IconButton
+        color="inherit"
+        onClick={() => setMode(isDark ? 'light' : 'dark')}
+        aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      >
+        {isDark ? <LightModeIcon /> : <DarkModeIcon />}
+      </IconButton>
+    </Tooltip>
+  )
+}
 
-    // Apply theme to document and save preference
-    useEffect(() => {
-        document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
-        localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
-    }, [isDarkMode]);
+function AppContent() {
+  const [showProfile, setShowProfile] = useState(false)
+  const [showLeaderboard, setShowLeaderboard] = useState(null)
+  const [confirmLogout, setConfirmLogout] = useState(false)
+  const { user, logout } = useAuth()
 
-    const toggleTheme = () => {
-        setIsDarkMode(!isDarkMode);
-    };
+  return (
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+      <AppBar position="sticky" color="default" enableColorOnDark>
+        <Toolbar sx={{ gap: 2, flexWrap: 'wrap', py: 1 }}>
+          <Typography variant="h6" component="h1" sx={{ fontWeight: 700, mr: 1 }}>
+            The Legendary Wee Weekly!
+          </Typography>
 
-    const handleLogout = () => {
-        if (confirm('Are you sure you want to sign out?')) {
-            logout();
-        }
-    };
+          <Stack direction="row" spacing={1} sx={{ flexGrow: 1 }}>
+            <Button
+              variant="contained"
+              color="primary"
+              size="small"
+              startIcon={<SportsTennisIcon />}
+              onClick={() => setShowLeaderboard('singles')}
+            >
+              Singles
+            </Button>
+            <Button
+              variant="contained"
+              color="secondary"
+              size="small"
+              startIcon={<SportsTennisIcon />}
+              onClick={() => setShowLeaderboard('doubles')}
+            >
+              Doubles
+            </Button>
+          </Stack>
 
-    return (
-        <div className="app-container">
-            <div className="app-header">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                    <h1 style={{ margin: 0 }}>The Legendary Wee Weekly!</h1>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                        <button
-                            onClick={() => setShowLeaderboard('singles')}
-                            style={{
-                                padding: '8px 16px',
-                                fontSize: '14px',
-                                backgroundColor: 'var(--accent-primary)',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '6px',
-                                cursor: 'pointer',
-                                fontWeight: '500',
-                                transition: 'all 0.2s ease',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px'
-                            }}
-                            onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
-                            onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-                        >
-                            🎾 Singles
-                        </button>
-                        <button
-                            onClick={() => setShowLeaderboard('doubles')}
-                            style={{
-                                padding: '8px 16px',
-                                fontSize: '14px',
-                                backgroundColor: 'var(--info)',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '6px',
-                                cursor: 'pointer',
-                                fontWeight: '500',
-                                transition: 'all 0.2s ease',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px'
-                            }}
-                            onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
-                            onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-                        >
-                            🎾🎾 Doubles
-                        </button>
-                    </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                    {user && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <div 
-                                onClick={() => setShowProfile(true)}
-                                style={{ 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    gap: '8px',
-                                    cursor: 'pointer',
-                                    padding: '4px 8px',
-                                    borderRadius: '6px',
-                                    transition: 'background-color 0.2s',
-                                    ':hover': {
-                                        backgroundColor: 'var(--background-color)'
-                                    }
-                                }}
-                            >
-                                <Avatar 
-                                    src={user.avatar} 
-                                    alt={user.name}
-                                    size={32}
-                                    style={{ border: '2px solid var(--border-color)' }}
-                                />
-                                <span style={{ 
-                                    fontSize: '14px', 
-                                    color: 'var(--text-secondary)',
-                                    fontWeight: '500'
-                                }}>
-                                    {user.name} ({user.role})
-                                </span>
-                            </div>
-                            <button
-                                onClick={handleLogout}
-                                style={{
-                                    padding: '6px 12px',
-                                    fontSize: '12px',
-                                    backgroundColor: 'transparent',
-                                    color: 'var(--text-secondary)',
-                                    border: '1px solid var(--border-color)',
-                                    borderRadius: '4px',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                Sign Out
-                            </button>
-                        </div>
-                    )}
-                    <button 
-                        className="theme-toggle"
-                        onClick={toggleTheme}
-                        aria-label={`Switch to ${isDarkMode ? 'light' : 'dark'} mode`}
-                    >
-                        {isDarkMode ? '☀️' : '🌙'}
-                    </button>
-                </div>
-            </div>
-            <TournamentManager />
-            
-            {showProfile && (
-                <Profile onClose={() => setShowProfile(false)} />
+          <Stack direction="row" spacing={1} alignItems="center">
+            {user && (
+              <>
+                <Button
+                  color="inherit"
+                  onClick={() => setShowProfile(true)}
+                  startIcon={
+                    <Avatar src={user.avatar} alt={user.name} size={32} />
+                  }
+                  sx={{ textTransform: 'none' }}
+                >
+                  {user.name} ({user.role})
+                </Button>
+                <Button
+                  color="inherit"
+                  size="small"
+                  startIcon={<LogoutIcon />}
+                  onClick={() => setConfirmLogout(true)}
+                >
+                  Sign Out
+                </Button>
+              </>
             )}
+            <ThemeToggle />
+          </Stack>
+        </Toolbar>
+      </AppBar>
 
-            {showLeaderboard && (
-                <Leaderboard 
-                    type={showLeaderboard} 
-                    onClose={() => setShowLeaderboard(null)} 
-                />
-            )}
-        </div>
-    );
-};
+      <Container maxWidth="xl" sx={{ py: 3 }}>
+        <TournamentManager />
+      </Container>
 
-const App = () => {
-    return (
-        <AuthProvider>
-            <AuthGuard>
-                <AppContent />
-            </AuthGuard>
-        </AuthProvider>
-    );
-};
+      {showProfile && <Profile onClose={() => setShowProfile(false)} />}
 
-export default App;
+      {showLeaderboard && (
+        <Leaderboard
+          type={showLeaderboard}
+          onClose={() => setShowLeaderboard(null)}
+        />
+      )}
+
+      <Dialog open={confirmLogout} onClose={() => setConfirmLogout(false)}>
+        <DialogTitle>Sign out?</DialogTitle>
+        <DialogContent>
+          Are you sure you want to sign out?
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmLogout(false)}>Cancel</Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={() => {
+              setConfirmLogout(false)
+              logout()
+            }}
+          >
+            Sign Out
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  )
+}
+
+export default function App() {
+  return (
+    <ThemeProvider
+      theme={theme}
+      defaultMode="light"
+      modeStorageKey="theme"
+      disableTransitionOnChange
+      forceThemeRerender
+    >
+      <CssBaseline />
+      <AuthProvider>
+        <AuthGuard>
+          <AppContent />
+        </AuthGuard>
+      </AuthProvider>
+    </ThemeProvider>
+  )
+}

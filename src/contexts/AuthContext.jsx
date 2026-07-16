@@ -1,5 +1,4 @@
-import { h, createContext } from 'preact';
-import { useContext, useState, useEffect } from 'preact/hooks';
+import { createContext, useContext, useState, useEffect } from 'react'
 
 // Initial users data
 const INITIAL_USERS = [
@@ -19,160 +18,160 @@ const INITIAL_USERS = [
     role: 'Administrator',
     avatar: null
   }
-];
+]
 
 // Store users in localStorage for persistence
 const getUsersFromStorage = () => {
-  const stored = localStorage.getItem('weeweekly_users');
+  const stored = localStorage.getItem('weeweekly_users')
   if (stored) {
     try {
-      return JSON.parse(stored);
+      return JSON.parse(stored)
     } catch (error) {
-      console.error('Error parsing stored users:', error);
+      console.error('Error parsing stored users:', error)
     }
   }
   // Initialize with default users if not in storage
-  localStorage.setItem('weeweekly_users', JSON.stringify(INITIAL_USERS));
-  return INITIAL_USERS;
-};
+  localStorage.setItem('weeweekly_users', JSON.stringify(INITIAL_USERS))
+  return INITIAL_USERS
+}
 
 const saveUsersToStorage = (users) => {
-  localStorage.setItem('weeweekly_users', JSON.stringify(users));
-};
+  localStorage.setItem('weeweekly_users', JSON.stringify(users))
+}
 
 // Helper function to get user avatar by email
 export const getUserAvatarByEmail = (email) => {
-  if (!email) return null;
-  
-  const users = getUsersFromStorage();
-  const user = users.find(u => u.email === email);
-  return user?.avatar || null;
-};
+  if (!email) return null
 
-const AuthContext = createContext();
+  const users = getUsersFromStorage()
+  const user = users.find((u) => u.email === email)
+  return user?.avatar || null
+}
+
+const AuthContext = createContext()
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
+  const context = useContext(AuthContext)
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error('useAuth must be used within an AuthProvider')
   }
-  return context;
-};
+  return context
+}
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(true)
 
   // Check for existing session on mount
   useEffect(() => {
-    const savedUser = localStorage.getItem('weeweekly_user');
+    const savedUser = localStorage.getItem('weeweekly_user')
     if (savedUser) {
       try {
-        const userData = JSON.parse(savedUser);
-        setUser(userData);
+        const userData = JSON.parse(savedUser)
+        setUser(userData)
       } catch (error) {
-        console.error('Error parsing saved user data:', error);
-        localStorage.removeItem('weeweekly_user');
+        console.error('Error parsing saved user data:', error)
+        localStorage.removeItem('weeweekly_user')
       }
     }
-    setLoading(false);
-  }, []);
+    setLoading(false)
+  }, [])
 
   const login = async (email, password) => {
-    setLoading(true);
-    
+    setLoading(true)
+
     try {
       // Get current users from storage
-      const users = getUsersFromStorage();
-      
+      const users = getUsersFromStorage()
+
       // Find user by email and password
       const foundUser = users.find(
-        u => u.email === email && u.password === password
-      );
+        (u) => u.email === email && u.password === password
+      )
 
       if (!foundUser) {
-        throw new Error('Invalid email or password');
+        throw new Error('Invalid email or password')
       }
 
       // Remove password from user object before storing
-      const { password: _, ...userWithoutPassword } = foundUser;
-      
-      setUser(userWithoutPassword);
-      localStorage.setItem('weeweekly_user', JSON.stringify(userWithoutPassword));
-      
-      return userWithoutPassword;
+      const { password: _, ...userWithoutPassword } = foundUser
+
+      setUser(userWithoutPassword)
+      localStorage.setItem('weeweekly_user', JSON.stringify(userWithoutPassword))
+
+      return userWithoutPassword
     } catch (error) {
-      throw error;
+      throw error
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const logout = () => {
-    setUser(null);
-    localStorage.removeItem('weeweekly_user');
-  };
+    setUser(null)
+    localStorage.removeItem('weeweekly_user')
+  }
 
   const updateProfile = async (updates) => {
     if (!user) {
-      throw new Error('No user logged in');
+      throw new Error('No user logged in')
     }
 
-    setLoading(true);
-    
+    setLoading(true)
+
     try {
-      const users = getUsersFromStorage();
-      const userIndex = users.findIndex(u => u.id === user.id);
-      
+      const users = getUsersFromStorage()
+      const userIndex = users.findIndex((u) => u.id === user.id)
+
       if (userIndex === -1) {
-        throw new Error('User not found');
+        throw new Error('User not found')
       }
 
       // Handle password change
       if (updates.currentPassword && updates.newPassword) {
         if (users[userIndex].password !== updates.currentPassword) {
-          throw new Error('Current password is incorrect');
+          throw new Error('Current password is incorrect')
         }
-        users[userIndex].password = updates.newPassword;
+        users[userIndex].password = updates.newPassword
       }
 
       // Handle email change
       if (updates.newEmail) {
         // Check if new email is already in use by another user
-        const emailExists = users.some(u => u.id !== user.id && u.email === updates.newEmail);
+        const emailExists = users.some((u) => u.id !== user.id && u.email === updates.newEmail)
         if (emailExists) {
-          throw new Error('Email address is already in use');
+          throw new Error('Email address is already in use')
         }
-        
+
         // Validate email format
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
         if (!emailRegex.test(updates.newEmail)) {
-          throw new Error('Please enter a valid email address');
+          throw new Error('Please enter a valid email address')
         }
-        
-        users[userIndex].email = updates.newEmail;
+
+        users[userIndex].email = updates.newEmail
       }
 
       // Handle avatar update
-      if (updates.hasOwnProperty('avatar')) {
-        users[userIndex].avatar = updates.avatar;
+      if (Object.prototype.hasOwnProperty.call(updates, 'avatar')) {
+        users[userIndex].avatar = updates.avatar
       }
 
       // Save updated users to storage
-      saveUsersToStorage(users);
+      saveUsersToStorage(users)
 
       // Update current user state (without password)
-      const { password: _, ...updatedUserWithoutPassword } = users[userIndex];
-      setUser(updatedUserWithoutPassword);
-      localStorage.setItem('weeweekly_user', JSON.stringify(updatedUserWithoutPassword));
+      const { password: _, ...updatedUserWithoutPassword } = users[userIndex]
+      setUser(updatedUserWithoutPassword)
+      localStorage.setItem('weeweekly_user', JSON.stringify(updatedUserWithoutPassword))
 
-      return updatedUserWithoutPassword;
+      return updatedUserWithoutPassword
     } catch (error) {
-      throw error;
+      throw error
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const value = {
     user,
@@ -181,11 +180,11 @@ export const AuthProvider = ({ children }) => {
     updateProfile,
     loading,
     isAuthenticated: !!user
-  };
+  }
 
   return (
     <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
-  );
-};
+  )
+}

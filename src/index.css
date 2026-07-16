@@ -1,1 +1,9 @@
-/* Material components CSS removed due to source map issues */
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+}

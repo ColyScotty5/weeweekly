@@ -1,25 +1,70 @@
-import { useState, useEffect } from 'preact/hooks'
+import { useState, useEffect } from 'react'
+import Box from '@mui/material/Box'
+import Typography from '@mui/material/Typography'
+import Button from '@mui/material/Button'
+import IconButton from '@mui/material/IconButton'
+import Paper from '@mui/material/Paper'
+import List from '@mui/material/List'
+import ListItem from '@mui/material/ListItem'
+import ListItemButton from '@mui/material/ListItemButton'
+import ListItemText from '@mui/material/ListItemText'
+import Chip from '@mui/material/Chip'
+import Alert from '@mui/material/Alert'
+import Snackbar from '@mui/material/Snackbar'
+import CircularProgress from '@mui/material/CircularProgress'
+import Dialog from '@mui/material/Dialog'
+import DialogTitle from '@mui/material/DialogTitle'
+import DialogContent from '@mui/material/DialogContent'
+import DialogActions from '@mui/material/DialogActions'
+import DialogContentText from '@mui/material/DialogContentText'
+import TextField from '@mui/material/TextField'
+import FormControl from '@mui/material/FormControl'
+import FormControlLabel from '@mui/material/FormControlLabel'
+import InputLabel from '@mui/material/InputLabel'
+import Select from '@mui/material/Select'
+import MenuItem from '@mui/material/MenuItem'
+import Checkbox from '@mui/material/Checkbox'
+import Stack from '@mui/material/Stack'
+import EditIcon from '@mui/icons-material/Edit'
+import DeleteIcon from '@mui/icons-material/Delete'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import CloseIcon from '@mui/icons-material/Close'
 import { tournamentsApi, eventsApi, playersApi, participantsApi, matchesApi, rankingsApi } from '../lib/supabase.js'
 import { generateSinglesDraw, generateDoublesDraw, generateMatches, POINTS_SYSTEM, syncNextRoundMatches, syncConsolationMatches, formatResultStatus, ODD_DOUBLES_REGISTRANTS_MESSAGE } from '../lib/tournamentUtils.js'
 import TournamentBracket from './TournamentBracket.jsx'
 import Avatar from './Avatar.jsx'
 import { getUserAvatarByEmail } from '../contexts/AuthContext.jsx'
 
-// Loading Spinner Component
-function LoadingSpinner({ size = 20, color = '#007bff' }) {
-  return (
-    <div
-      style={{
-        width: `${size}px`,
-        height: `${size}px`,
-        border: `2px solid ${color}20`,
-        borderTop: `2px solid ${color}`,
-        borderRadius: '50%',
-        animation: 'spin 1s linear infinite',
-        display: 'inline-block'
-      }}
-    />
-  )
+function getLocalDateString() {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function getStatusChipColor(status) {
+  switch (status) {
+    case 'registration': return 'info'
+    case 'draw_created': return 'warning'
+    case 'in_progress': return 'primary'
+    case 'completed': return 'success'
+    default: return 'default'
+  }
+}
+
+function formatStatusLabel(status) {
+  if (status === 'draw_created') return 'Draw Created'
+  if (!status) return ''
+  return status.replace(/_/g, ' ')
+}
+
+function stripMessagePrefix(message) {
+  return message.replace(/^[✅❌]\s*/, '')
+}
+
+function isSuccessMessage(message) {
+  return message.includes('✅')
 }
 
 export default function TournamentManager() {
@@ -63,23 +108,20 @@ export default function TournamentManager() {
   const createTournament = async (tournamentData) => {
     setLoading(true)
     try {
-      // Fix timezone issue by ensuring date is treated as local date
       const localDate = new Date(tournamentData.date + 'T12:00:00')
       const formattedDate = localDate.toISOString().split('T')[0]
-      
+
       const tournament = await tournamentsApi.create({
-        name: 'Temporary Name', // Will be updated with proper name after creation
+        name: 'Temporary Name',
         tournament_date: formattedDate,
         description: tournamentData.description,
         status: 'upcoming'
       })
 
-      // Update tournament with proper name using the actual ID
       await tournamentsApi.update(tournament.id, {
         name: `Wee Weekly (${tournament.id})`
       })
 
-      // Create event for the tournament
       await eventsApi.create({
         tournament_id: tournament.id,
         event_type: tournamentData.eventType,
@@ -111,13 +153,13 @@ export default function TournamentManager() {
   }
 
   const handleDeleteTournament = (tournament, event) => {
-    event.stopPropagation() // Prevent tournament selection when clicking delete
+    event.stopPropagation()
     setTournamentToDelete(tournament)
     setShowDeleteModal(true)
   }
 
   const handleEditTournament = (tournament, event) => {
-    event.stopPropagation() // Prevent tournament selection when clicking edit
+    event.stopPropagation()
     setTournamentToEdit(tournament)
     setShowEditModal(true)
   }
@@ -129,17 +171,16 @@ export default function TournamentManager() {
 
   const confirmDeleteTournament = async () => {
     if (!tournamentToDelete) return
-    
+
     setLoading(true)
     try {
       await tournamentsApi.delete(tournamentToDelete.id)
       setMessage('✅ Tournament deleted successfully!')
-      
-      // Clear selected tournament if it was the one deleted
+
       if (selectedTournament?.id === tournamentToDelete.id) {
         setSelectedTournament(null)
       }
-      
+
       loadTournaments()
       setShowDeleteModal(false)
       setTournamentToDelete(null)
@@ -158,30 +199,24 @@ export default function TournamentManager() {
 
   const updateTournament = async (tournamentData) => {
     if (!tournamentToEdit) return
-    
+
     setLoading(true)
     try {
-      // Fix timezone issue by ensuring date is treated as local date
       const localDate = new Date(tournamentData.date + 'T12:00:00')
       const formattedDate = localDate.toISOString().split('T')[0]
-      
-      // Update tournament basic info (name is auto-generated, so we don't update it)
+
       await tournamentsApi.update(tournamentToEdit.id, {
         tournament_date: formattedDate,
         description: tournamentData.description
       })
 
-      // Handle event type change if needed
       if (tournamentData.eventType !== tournamentToEdit.events?.[0]?.event_type) {
-        // Get current events
         const currentEvents = tournamentToEdit.events || []
-        
-        // Delete existing events
+
         for (const event of currentEvents) {
           await eventsApi.delete(event.id)
         }
-        
-        // Create new event with the selected type
+
         await eventsApi.create({
           tournament_id: tournamentToEdit.id,
           event_type: tournamentData.eventType,
@@ -193,8 +228,7 @@ export default function TournamentManager() {
       setShowEditModal(false)
       setTournamentToEdit(null)
       loadTournaments()
-      
-      // Refresh selected tournament if it was the one being edited
+
       if (selectedTournament?.id === tournamentToEdit.id) {
         loadTournamentDetails(tournamentToEdit.id)
       }
@@ -208,10 +242,9 @@ export default function TournamentManager() {
 
   const updateEvent = async (eventData) => {
     if (!eventToEdit) return
-    
+
     setLoading(true)
     try {
-      // Update event
       await eventsApi.update(eventToEdit.id, {
         event_type: eventData.eventType,
         status: eventData.status
@@ -221,8 +254,7 @@ export default function TournamentManager() {
       setShowEditEventModal(false)
       setEventToEdit(null)
       loadTournaments()
-      
-      // Refresh selected tournament if it contains the edited event
+
       if (selectedTournament?.events?.some(e => e.id === eventToEdit.id)) {
         loadTournamentDetails(selectedTournament.id)
       }
@@ -234,7 +266,6 @@ export default function TournamentManager() {
     }
   }
 
-  // Helper function to determine if a tournament is completed
   const isTournamentCompleted = (tournament) => {
     if (!tournament.events || tournament.events.length === 0) {
       return false
@@ -243,97 +274,172 @@ export default function TournamentManager() {
   }
 
   return (
-    <div style={{ padding: '20px', margin: '0 auto' }}>
-      <h2>Tournament Manager</h2>
+    <Box sx={{ p: 2.5, mx: 'auto' }}>
+      <Typography variant="h5" component="h2" gutterBottom>
+        Tournament Manager
+      </Typography>
 
-      {message && (
-        <div style={{
-          padding: '10px',
-          marginBottom: '20px',
-          backgroundColor: message.includes('✅') ? '#d4edda' : '#f8d7da',
-          border: `1px solid ${message.includes('✅') ? '#c3e6cb' : '#f5c6cb'}`,
-          borderRadius: '4px',
-          color: message.includes('✅') ? '#155724' : '#721c24'
-        }}>
-          {message}
-        </div>
-      )}
-
-      <div style={{ marginBottom: '20px' }}>
-        <button
-          onClick={() => setShowCreateForm(true)}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: '#007bff',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
+      <Snackbar
+        open={Boolean(message)}
+        autoHideDuration={5000}
+        onClose={() => setMessage('')}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setMessage('')}
+          severity={isSuccessMessage(message) ? 'success' : 'error'}
+          variant="filled"
+          sx={{ width: '100%' }}
         >
-          Create New Tournament
-        </button>
-      </div>
+          {stripMessagePrefix(message)}
+        </Alert>
+      </Snackbar>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 460px) 1fr', gap: '20px' }}>
-        <div className="tournament-card">
-          <h3>Tournaments</h3>
-          <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+      <Box sx={{ mb: 2.5 }}>
+        <Button variant="contained" color="primary" size="small" onClick={() => setShowCreateForm(true)}>
+          Create New Tournament
+        </Button>
+      </Box>
+
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: 'minmax(300px, 460px) 1fr' },
+          gap: 2.5
+        }}
+      >
+        <Paper variant="outlined" sx={{ p: 2 }}>
+          <Typography variant="h6" gutterBottom>
+            Tournaments
+          </Typography>
+          <List dense sx={{ maxHeight: 400, overflowY: 'auto', py: 0 }}>
             {tournaments.map(tournament => {
               const isCompleted = isTournamentCompleted(tournament)
+              const selected = selectedTournament?.id === tournament.id
+              const totalParticipants = tournament.events?.reduce((total, event) => {
+                return total + (event.event_participants?.length || 0)
+              }, 0) || 0
+
               return (
-                <div
+                <ListItem
                   key={tournament.id}
-                  onClick={() => loadTournamentDetails(tournament.id)}
-                  className={`tournament-item ${selectedTournament?.id === tournament.id ? 'selected' : ''} ${isCompleted ? 'completed' : ''}`}
+                  disablePadding
+                  secondaryAction={
+                    <Stack direction="row" spacing={0.5}>
+                      <IconButton
+                        edge="end"
+                        size="small"
+                        aria-label={`Edit ${tournament.name}`}
+                        onClick={(e) => handleEditTournament(tournament, e)}
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        edge="end"
+                        size="small"
+                        color="error"
+                        aria-label={`Delete ${tournament.name}`}
+                        onClick={(e) => handleDeleteTournament(tournament, e)}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Stack>
+                  }
+                  sx={{
+                    mb: 0.5,
+                    border: 1,
+                    borderColor: selected
+                      ? 'primary.main'
+                      : isCompleted
+                        ? 'success.dark'
+                        : 'divider',
+                    borderRadius: 1,
+                    bgcolor: selected && !isCompleted
+                      ? 'action.selected'
+                      : isCompleted
+                        ? 'success.dark'
+                        : 'background.paper',
+                    color: isCompleted ? 'common.white' : 'inherit',
+                    '& .MuiIconButton-root': {
+                      color: isCompleted ? 'common.white' : 'inherit'
+                    },
+                    '& .MuiIconButton-root.MuiIconButton-colorError': {
+                      color: isCompleted ? 'common.white' : undefined
+                    }
+                  }}
                 >
-                  <div className="tournament-item-content">
-                    <div className="tournament-item-title">
-                      {tournament.name}
-                      <span className="participant-count">
-                        {(() => {
-                          const totalParticipants = tournament.events?.reduce((total, event) => {
-                            return total + (event.event_participants?.length || 0)
-                          }, 0) || 0
-                          return ` (${totalParticipants} participant${totalParticipants !== 1 ? 's' : ''})`
-                        })()}
-                      </span>
-                    </div>
-                    <div className="tournament-item-date">
-                      {new Date(tournament.tournament_date + 'T12:00:00').toLocaleDateString()}
-                      {isCompleted && (
-                        <span className="tournament-completed-indicator">
-                          <span className="completed-text">Completed</span>
-                          <span className="completed-check">✓</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="tournament-actions">
-                    <button
-                      className="tournament-edit-btn"
-                      onClick={(e) => handleEditTournament(tournament, e)}
-                      title="Edit Tournament"
-                      aria-label={`Edit ${tournament.name}`}
-                    >
-                      ✏️
-                    </button>
-                    <button
-                      className="tournament-delete-btn"
-                      onClick={(e) => handleDeleteTournament(tournament, e)}
-                      title="Delete Tournament"
-                      aria-label={`Delete ${tournament.name}`}
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                </div>
+                  <ListItemButton
+                    selected={selected}
+                    onClick={() => loadTournamentDetails(tournament.id)}
+                    sx={{
+                      pr: 10,
+                      '&.Mui-selected': {
+                        bgcolor: isCompleted ? 'success.dark' : undefined
+                      },
+                      '&.Mui-selected:hover': {
+                        bgcolor: isCompleted ? 'success.main' : undefined
+                      },
+                      '&:hover': {
+                        bgcolor: isCompleted ? 'success.main' : undefined
+                      }
+                    }}
+                  >
+                    <ListItemText
+                      primaryTypographyProps={{ component: 'div' }}
+                      secondaryTypographyProps={{ component: 'div' }}
+                      primary={
+                        <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                          <Typography
+                            component="span"
+                            variant="body2"
+                            fontWeight={600}
+                            sx={{ color: isCompleted ? '#fff' : 'text.primary' }}
+                          >
+                            {tournament.name}
+                          </Typography>
+                          <Typography
+                            component="span"
+                            variant="caption"
+                            sx={{ color: isCompleted ? 'rgba(255,255,255,0.85)' : 'text.secondary' }}
+                          >
+                            ({totalParticipants} participant{totalParticipants !== 1 ? 's' : ''})
+                          </Typography>
+                        </Box>
+                      }
+                      secondary={
+                        <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                          <Typography
+                            component="span"
+                            variant="caption"
+                            sx={{ color: isCompleted ? 'rgba(255,255,255,0.85)' : 'text.secondary' }}
+                          >
+                            {new Date(tournament.tournament_date + 'T12:00:00').toLocaleDateString()}
+                          </Typography>
+                          {isCompleted && (
+                            <Chip
+                              size="small"
+                              icon={<CheckCircleIcon />}
+                              label="Completed"
+                              sx={{
+                                height: 20,
+                                bgcolor: 'rgba(255,255,255,0.2)',
+                                color: '#fff',
+                                '& .MuiChip-icon': { color: '#fff' },
+                                '& .MuiChip-label': { px: 0.75, fontSize: '0.7rem' }
+                              }}
+                            />
+                          )}
+                        </Box>
+                      }
+                    />
+                  </ListItemButton>
+                </ListItem>
               )
             })}
-          </div>
-        </div>
+          </List>
+        </Paper>
 
-        <div className="tournament-card">
+        <Paper variant="outlined" sx={{ p: 2, minHeight: 200 }}>
           {selectedTournament ? (
             <TournamentDetails
               tournament={selectedTournament}
@@ -348,229 +454,131 @@ export default function TournamentManager() {
               onEditEvent={handleEditEvent}
             />
           ) : (
-            <div style={{ textAlign: 'center', color: '#666', marginTop: '50px' }}>
+            <Typography color="text.secondary" sx={{ textAlign: 'center', mt: 6 }}>
               Select a tournament to view details
-            </div>
+            </Typography>
           )}
-        </div>
-      </div>
+        </Paper>
+      </Box>
 
-      {/* Create Tournament Modal */}
-      {showCreateForm && (
-        <CreateTournamentModal
-          onSubmit={createTournament}
-          onCancel={() => setShowCreateForm(false)}
-          loading={loading}
-        />
-      )}
+      <CreateTournamentModal
+        open={showCreateForm}
+        onSubmit={createTournament}
+        onCancel={() => setShowCreateForm(false)}
+        loading={loading}
+      />
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && tournamentToDelete && (
-        <DeleteConfirmationModal
-          tournament={tournamentToDelete}
-          onConfirm={confirmDeleteTournament}
-          onCancel={cancelDeleteTournament}
-          loading={loading}
-        />
-      )}
+      <DeleteConfirmationModal
+        open={showDeleteModal && Boolean(tournamentToDelete)}
+        tournament={tournamentToDelete}
+        onConfirm={confirmDeleteTournament}
+        onCancel={cancelDeleteTournament}
+        loading={loading}
+      />
 
-      {/* Edit Tournament Modal */}
-      {showEditModal && tournamentToEdit && (
-        <EditTournamentModal
-          tournament={tournamentToEdit}
-          onSave={updateTournament}
-          onCancel={() => setShowEditModal(false)}
-          loading={loading}
-        />
-      )}
+      <EditTournamentModal
+        open={showEditModal && Boolean(tournamentToEdit)}
+        tournament={tournamentToEdit}
+        onSave={updateTournament}
+        onCancel={() => setShowEditModal(false)}
+        loading={loading}
+      />
 
-      {/* Edit Event Modal */}
-      {showEditEventModal && eventToEdit && (
-        <EditEventModal
-          event={eventToEdit}
-          onSave={updateEvent}
-          onCancel={() => setShowEditEventModal(false)}
-          loading={loading}
-        />
-      )}
-    </div>
+      <EditEventModal
+        open={showEditEventModal && Boolean(eventToEdit)}
+        event={eventToEdit}
+        onSave={updateEvent}
+        onCancel={() => setShowEditEventModal(false)}
+        loading={loading}
+      />
+    </Box>
   )
 }
 
-function CreateTournamentModal({ onSubmit, onCancel, loading }) {
-  // Get today's date in local timezone
-  const getLocalDateString = () => {
-    const today = new Date()
-    const year = today.getFullYear()
-    const month = String(today.getMonth() + 1).padStart(2, '0')
-    const day = String(today.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
-  }
-
+function CreateTournamentModal({ open, onSubmit, onCancel, loading }) {
   const [formData, setFormData] = useState({
     date: getLocalDateString(),
     description: '',
     eventType: 'singles'
   })
 
+  useEffect(() => {
+    if (open) {
+      setFormData({
+        date: getLocalDateString(),
+        description: '',
+        eventType: 'singles'
+      })
+    }
+  }, [open])
+
   const handleSubmit = (e) => {
     e.preventDefault()
     onSubmit(formData)
   }
 
-  const handleOverlayClick = (e) => {
-    if (e.target === e.currentTarget) {
-      onCancel()
-    }
-  }
-
   return (
-    <div 
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000,
-        padding: '20px'
-      }}
-      onClick={handleOverlayClick}
-    >
-      <div style={{
-        backgroundColor: 'var(--card-background)',
-        borderRadius: '8px',
-        padding: '30px',
-        width: '100%',
-        maxWidth: '500px',
-        border: '1px solid var(--border-color)',
-        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)'
-      }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '25px'
-        }}>
-          <h2 style={{ 
-            margin: 0, 
-            color: 'var(--text-color)',
-            fontSize: '24px'
-          }}>
-            Create New Tournament
-          </h2>
-          <button
-            onClick={onCancel}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '24px',
-              cursor: 'pointer',
-              color: 'var(--text-secondary)',
-              padding: '0',
-              width: '30px',
-              height: '30px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            ×
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} style={{
-          padding: '20px',
-          border: '1px solid var(--border-color)',
-          borderRadius: '8px',
-          backgroundColor: 'var(--background-color)'
-        }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1em', marginBottom: '15px' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '5px' }}>Date:</label>
-              <input
+    <Dialog open={open} onClose={loading ? undefined : onCancel} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pr: 1 }}>
+        Create New Tournament
+        <IconButton aria-label="close" onClick={onCancel} disabled={loading} size="small">
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      <form onSubmit={handleSubmit}>
+        <DialogContent dividers>
+          <Stack spacing={2}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <TextField
+                label="Date"
                 type="date"
                 value={formData.date}
                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                 required
-                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                size="small"
+                fullWidth
+                slotProps={{ inputLabel: { shrink: true } }}
               />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', marginBottom: '5px' }}>Event Type:</label>
-              <select
-                value={formData.eventType}
-                onChange={(e) => setFormData({ ...formData, eventType: e.target.value })}
-                style={{ 
-                  width: '100%', 
-                  padding: '8px', 
-                  borderRadius: '4px', 
-                  border: '1px solid #ddd',
-                  fontSize: '14px'
-                }}
-              >
-                <option value="singles">Singles</option>
-                <option value="doubles">Doubles</option>
-              </select>
-            </div>
-          </div>
-
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>Description:</label>
-            <textarea
+              <FormControl size="small" fullWidth>
+                <InputLabel id="create-event-type-label">Event Type</InputLabel>
+                <Select
+                  labelId="create-event-type-label"
+                  label="Event Type"
+                  value={formData.eventType}
+                  onChange={(e) => setFormData({ ...formData, eventType: e.target.value })}
+                >
+                  <MenuItem value="singles">Singles</MenuItem>
+                  <MenuItem value="doubles">Doubles</MenuItem>
+                </Select>
+              </FormControl>
+            </Stack>
+            <TextField
+              label="Description"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              rows="3"
-              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+              multiline
+              rows={3}
+              size="small"
+              fullWidth
             />
-          </div>
-
-          <div style={{ display: 'flex', gap: '15px', justifyContent: 'flex-end' }}>
-            <button
-              type="button"
-              onClick={onCancel}
-              disabled={loading}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: 'transparent',
-                color: 'var(--text-secondary)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '4px',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.6 : 1
-              }}
-            >
-              Cancel
-            </button>
-            
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: '#28a745',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.6 : 1,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-            >
-              {loading && <LoadingSpinner size={16} color="white" />}
-              {loading ? 'Creating...' : 'Create Tournament'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={onCancel} disabled={loading} color="inherit">
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            variant="contained"
+            color="success"
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={16} color="inherit" /> : null}
+          >
+            {loading ? 'Creating...' : 'Create Tournament'}
+          </Button>
+        </DialogActions>
+      </form>
+    </Dialog>
   )
 }
 
@@ -578,7 +586,7 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [registrationMode, setRegistrationMode] = useState(false)
   const [bracketView, setBracketView] = useState(null)
-  const [bracketType, setBracketType] = useState('main') // 'main' or 'consolation'
+  const [bracketType, setBracketType] = useState('main')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [drawErrorModal, setDrawErrorModal] = useState(null)
@@ -598,7 +606,6 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
     return () => { cancelled = true }
   }, [tournament?.id])
 
-  // Load matches for an event to check completion status
   const loadEventMatches = async (eventId) => {
     try {
       const matches = await matchesApi.getByEvent(eventId)
@@ -610,10 +617,9 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
     }
   }
 
-  // Check if all matches in an event are completed (no in_progress matches)
   const canCompleteEvent = (eventId) => {
     const matches = eventMatches[eventId] || []
-    return matches.length > 0 && matches.every(match => 
+    return matches.length > 0 && matches.every(match =>
       match.status === 'completed' || match.status === 'walkover' || match.status === 'cancelled'
     )
   }
@@ -621,9 +627,8 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
   const generateDraw = async (eventId, eventType) => {
     setLoading(true)
     try {
-      // Get participants for this event
       const participants = await participantsApi.getByEvent(eventId)
-      
+
       if (participants.length < 4) {
         setMessage('❌ Need at least 4 participants to generate a draw')
         return
@@ -645,7 +650,6 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
         matches = generateMatches(eventId, draw, 'doubles')
       }
 
-      // Persist seed positions on participants
       const seedUpdates = new Map()
       if (eventType === 'singles') {
         for (const slot of draw.bracket || []) {
@@ -668,29 +672,24 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
         await participantsApi.update(participantId, { seed_position: seedPosition })
       }
 
-      // Create matches in database
       for (const match of matches) {
         await matchesApi.create(match)
       }
 
-      // Seed progressive next-round slots from Bye winners (vs Pending)
       const firstRoundName = matches[0]?.round_name
       if (firstRoundName) {
         await syncNextRoundMatches(eventId, firstRoundName)
         await syncConsolationMatches(eventId)
       }
 
-      // Update event status
       await eventsApi.update(eventId, {
         status: 'draw_created',
         draw_structure: draw
       })
 
       setMessage(`✅ Draw generated successfully! (${draw.seededCount || 0} seeded, ${draw.numberOfByes || 0} byes)`)
-      // Registration is locked once the draw exists
       setRegistrationMode(false)
       setSelectedEvent((current) => (current === eventId ? null : current))
-      // Load matches for the event to enable completion checking
       await loadEventMatches(eventId)
       onUpdate()
     } catch (error) {
@@ -709,19 +708,18 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
     setLoading(true)
     try {
       const matches = eventMatches[event.id] || []
-      
+
       if (!canCompleteEvent(event.id)) {
         setMessage('❌ Cannot complete event: some matches are still in progress')
         return
       }
 
-      // Award points onto event_participants (source of truth for rankings)
       const participants = event.event_participants || []
       const pointsSystem = POINTS_SYSTEM[event.event_type]?.main || {}
-      
+
       for (const participant of participants) {
-        const playerMatches = matches.filter(match => 
-          match.player1_id === participant.player_id || 
+        const playerMatches = matches.filter(match =>
+          match.player1_id === participant.player_id ||
           match.player2_id === participant.player_id ||
           match.player1_partner_id === participant.player_id ||
           match.player2_partner_id === participant.player_id
@@ -736,7 +734,6 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
         })
       }
 
-      // Update event status to completed
       await eventsApi.update(event.id, { status: 'completed' })
 
       setMessage('✅ Event completed successfully! Points saved for all participants.')
@@ -749,7 +746,6 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
     }
   }
 
-  // Helper: furthest main-bracket round reached (used for points + status)
   const calculateFurthestRound = (playerMatches, playerId) => {
     const mainMatches = playerMatches.filter(
       (match) => match.bracket_type === 'main' || !match.bracket_type
@@ -786,7 +782,6 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
     for (const match of mainMatches) {
       if (match.status !== 'completed' && match.status !== 'walkover') continue
       if (match.score === 'Bye' && match.winner_id === playerId) {
-        // Bye advances you; don't set elimination round from the bye itself
         const advanced = advanceFrom[match.round_name]
         if (advanced && (rank[advanced] || 0) > maxRank) {
           maxRank = rank[advanced]
@@ -818,7 +813,6 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
     return furthestRound || 'round_32'
   }
 
-  // Load matches when component mounts or tournament changes
   useEffect(() => {
     if (tournament?.events) {
       tournament.events.forEach(event => {
@@ -830,151 +824,107 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
   }, [tournament])
 
   return (
-    <div>
-      <h3>{tournament.name}</h3>
-      <p><strong>Date:</strong> {new Date(tournament.tournament_date + 'T12:00:00').toLocaleDateString()}</p>
-      {tournament.description && <p><strong>Description:</strong> {tournament.description}</p>}
-
-      {message && (
-        <div style={{
-          padding: '10px',
-          marginBottom: '15px',
-          backgroundColor: message.includes('✅') ? '#d4edda' : '#f8d7da',
-          border: `1px solid ${message.includes('✅') ? '#c3e6cb' : '#f5c6cb'}`,
-          borderRadius: '4px',
-          color: message.includes('✅') ? '#155724' : '#721c24'
-        }}>
-          {message}
-        </div>
+    <Box>
+      <Typography variant="h6" gutterBottom>
+        {tournament.name}
+      </Typography>
+      <Typography variant="body2" sx={{ mb: 0.5 }}>
+        <strong>Date:</strong> {new Date(tournament.tournament_date + 'T12:00:00').toLocaleDateString()}
+      </Typography>
+      {tournament.description && (
+        <Typography variant="body2" sx={{ mb: 1.5 }}>
+          <strong>Description:</strong> {tournament.description}
+        </Typography>
       )}
 
-      <h4>Events</h4>
+      {message && (
+        <Alert
+          severity={isSuccessMessage(message) ? 'success' : 'error'}
+          onClose={() => setMessage('')}
+          sx={{ mb: 2 }}
+        >
+          {stripMessagePrefix(message)}
+        </Alert>
+      )}
+
+      <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+        Events
+      </Typography>
+
       {tournament.events?.map(event => (
-        <div key={event.id} style={{
-          border: '1px solid #ddd',
-          borderRadius: '4px',
-          padding: '15px',
-          marginBottom: '15px'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-            <h5 style={{ margin: 0 }}>
+        <Paper key={event.id} variant="outlined" sx={{ p: 2, mb: 2 }}>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            justifyContent="space-between"
+            alignItems={{ xs: 'flex-start', sm: 'center' }}
+            spacing={1}
+            sx={{ mb: 1.5 }}
+          >
+            <Typography variant="subtitle1" fontWeight={600}>
               {event.event_type.charAt(0).toUpperCase() + event.event_type.slice(1)} Event
-            </h5>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{
-                padding: '4px 8px',
-                borderRadius: '4px',
-                fontSize: '0.8em',
-                backgroundColor: getStatusColor(event.status),
-                color: 'white'
-              }}>
-                {event.status === 'draw_created' ? 'Draw Created' : event.status}
-              </span>
-              
-              {/* Edit Event Button */}
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  onEditEvent(event);
-                }}
-                style={{
-                  color: '#6c757d',
-                  textDecoration: 'underline',
-                  fontSize: '0.8em',
-                  cursor: 'pointer',
-                  marginLeft: '8px'
-                }}
-              >
+            </Typography>
+            <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
+              <Chip
+                size="small"
+                label={formatStatusLabel(event.status)}
+                color={getStatusChipColor(event.status)}
+              />
+              <Button size="small" color="inherit" onClick={() => onEditEvent(event)}>
                 Edit Event
-              </a>
-              
-              {/* Complete Event Button */}
+              </Button>
               {(event.status === 'draw_created' || event.status === 'in_progress') && (
-                <button
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="success"
                   onClick={() => completeEvent(event)}
                   disabled={loading || !canCompleteEvent(event.id)}
-                  style={{
-                    padding: '4px 8px',
-                    backgroundColor: canCompleteEvent(event.id) ? '#28a745' : '#6c757d',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: canCompleteEvent(event.id) && !loading ? 'pointer' : 'not-allowed',
-                    fontSize: '0.8em',
-                    opacity: canCompleteEvent(event.id) && !loading ? 1 : 0.6,
-                    transition: 'all 0.3s ease',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
+                  startIcon={loading ? <CircularProgress size={12} color="inherit" /> : null}
                   title={canCompleteEvent(event.id) ? 'Complete event and award points' : 'Some matches are still in progress'}
                 >
-                  {loading && <LoadingSpinner size={12} color="white" />}
                   {loading ? 'Completing...' : 'Complete Event'}
-                </button>
+                </Button>
               )}
-              
-              {/* Show completed status */}
               {event.status === 'completed' && (
-                <span style={{
-                  padding: '4px 8px',
-                  backgroundColor: '#28a745',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  fontSize: '0.8em',
-                  opacity: 0.8
-                }}>
-                  ✅ Event Completed
-                </span>
+                <Chip size="small" color="success" label="Event Completed" icon={<CheckCircleIcon />} />
               )}
-            </div>
-          </div>
+            </Stack>
+          </Stack>
 
-          <p><strong>Participants:</strong> {event.event_participants?.length || 0}</p>
+          <Typography variant="body2" sx={{ mb: 1.5 }}>
+            <strong>Participants:</strong> {event.event_participants?.length || 0}
+          </Typography>
 
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             {event.status === 'registration' && (
               <>
-                <button
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="info"
                   onClick={() => setRegistrationMode(event.id)}
-                  style={{
-                    padding: '6px 12px',
-                    backgroundColor: '#17a2b8',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer'
-                  }}
                 >
                   Manage Registration
-                </button>
-                <button
+                </Button>
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="success"
                   onClick={() => generateDraw(event.id, event.event_type)}
                   disabled={loading || (event.event_participants?.length || 0) < 4}
-                  style={{
-                    padding: '6px 12px',
-                    backgroundColor: '#28a745',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    opacity: loading || (event.event_participants?.length || 0) < 4 ? 0.6 : 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
+                  startIcon={loading ? <CircularProgress size={14} color="inherit" /> : null}
                 >
-                  {loading && <LoadingSpinner size={14} color="white" />}
                   {loading ? 'Generating...' : 'Generate Draw'}
-                </button>
+                </Button>
               </>
             )}
 
             {(event.status === 'draw_created' || event.status === 'in_progress' || event.status === 'completed') && (
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
+              <>
+                <Button
+                  size="small"
+                  variant="contained"
+                  color={bracketView === event.id && bracketType === 'main' ? 'primary' : 'info'}
                   onClick={() => {
                     if (bracketView === event.id && bracketType === 'main') {
                       setBracketView(null)
@@ -983,18 +933,13 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
                       setBracketType('main')
                     }
                   }}
-                  style={{
-                    padding: '6px 12px',
-                    backgroundColor: bracketView === event.id && bracketType === 'main' ? '#0056b3' : '#17a2b8',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer'
-                  }}
                 >
                   {bracketView === event.id && bracketType === 'main' ? 'Hide Main Bracket' : 'Main Bracket'}
-                </button>
-                <button
+                </Button>
+                <Button
+                  size="small"
+                  variant="contained"
+                  color={bracketView === event.id && bracketType === 'consolation' ? 'primary' : 'info'}
                   onClick={() => {
                     if (bracketView === event.id && bracketType === 'consolation') {
                       setBracketView(null)
@@ -1003,36 +948,23 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
                       setBracketType('consolation')
                     }
                   }}
-                  style={{
-                    padding: '6px 12px',
-                    backgroundColor: bracketView === event.id && bracketType === 'consolation' ? '#0056b3' : '#17a2b8',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer'
-                  }}
                 >
                   {bracketView === event.id && bracketType === 'consolation' ? 'Hide Consolation' : 'Consolation'}
-                </button>
-              </div>
+                </Button>
+              </>
             )}
-            
+
             {event.status === 'registration' && (
-              <button
+              <Button
+                size="small"
+                variant="outlined"
+                color="inherit"
                 onClick={() => setSelectedEvent(selectedEvent === event.id ? null : event.id)}
-                style={{
-                  padding: '6px 12px',
-                  backgroundColor: '#6c757d',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}
               >
                 {selectedEvent === event.id ? 'Hide Details' : 'View Details'}
-              </button>
+              </Button>
             )}
-          </div>
+          </Stack>
 
           {event.status === 'registration' && selectedEvent === event.id && (
             <EventDetails
@@ -1042,17 +974,16 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
           )}
 
           {bracketView === event.id && (
-            <div style={{ marginTop: '15px' }}>
-              <TournamentBracket 
-                event={event} 
+            <Box sx={{ mt: 2 }}>
+              <TournamentBracket
+                event={event}
                 bracketType={bracketType}
                 onMatchUpdate={() => {
                   onUpdate()
-                  // Refresh tournament details to get updated match data
                   setTimeout(() => onUpdate(), 500)
                 }}
               />
-            </div>
+            </Box>
           )}
 
           {event.status === 'registration' && registrationMode === event.id && (
@@ -1064,86 +995,91 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
               onPlayersChange={onPlayersChange}
             />
           )}
-        </div>
+        </Paper>
       ))}
 
-      {drawErrorModal && (
-        <AlertModal
-          title="Cannot Generate Draw"
-          message={drawErrorModal}
-          onClose={() => setDrawErrorModal(null)}
-        />
-      )}
-    </div>
+      <AlertModal
+        open={Boolean(drawErrorModal)}
+        title="Cannot Generate Draw"
+        message={drawErrorModal}
+        onClose={() => setDrawErrorModal(null)}
+      />
+    </Box>
   )
 }
 
 function EventDetails({ event, playersById = new Map() }) {
   return (
-    <div className="event-details">
-      <h6>Participants:</h6>
+    <Box className="event-details" sx={{ mt: 2 }}>
+      <Typography variant="subtitle2" gutterBottom>
+        Participants:
+      </Typography>
       {event.event_participants?.length > 0 ? (
-        <div className="participants-grid">
+        <Box className="participants-grid">
           {event.event_participants.map(participant => {
             const ranking = playersById.get(participant.player_id)
             const partnerRanking = participant.partner_id
               ? playersById.get(participant.partner_id)
               : null
             return (
-            <div key={participant.id} className="participant-card">
-              <div className="participant-header">
-                <Avatar 
-                  src={getUserAvatarByEmail(participant.player?.email)} 
-                  alt={participant.player?.name}
-                  size={40}
-                />
-                <div className="participant-info">
-                  <div className="participant-name">
-                    {participant.player?.name}
-                    {participant.seed_position && (
-                      <span className="participant-seed">
-                        (Seed {participant.seed_position})
-                      </span>
+              <Paper key={participant.id} variant="outlined" className="participant-card" sx={{ p: 1 }}>
+                <Box className="participant-header">
+                  <Avatar
+                    src={getUserAvatarByEmail(participant.player?.email)}
+                    alt={participant.player?.name}
+                    size={40}
+                  />
+                  <Box className="participant-info">
+                    <Typography variant="body2" fontWeight={600} className="participant-name">
+                      {participant.player?.name}
+                      {participant.seed_position && (
+                        <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
+                          (Seed {participant.seed_position})
+                        </Typography>
+                      )}
+                    </Typography>
+                  </Box>
+                </Box>
+                {participant.player && (
+                  <Typography variant="caption" color="primary" display="block" sx={{ mt: 0.5 }}>
+                    Rank pts: {(ranking?.rankPoints ?? 0).toFixed(2)}
+                    {typeof participant.points_earned === 'number' && (
+                      <> · Event pts: {participant.points_earned}</>
                     )}
-                  </div>
-                </div>
-              </div>
-              {participant.player && (
-                <div className="participant-rank">
-                  Rank pts: {(ranking?.rankPoints ?? 0).toFixed(2)}
-                  {typeof participant.points_earned === 'number' && (
-                    <> · Event pts: {participant.points_earned}</>
-                  )}
-                </div>
-              )}
-              {participant.partner && (
-                <div className="participant-partner">
-                  <div className="partner-header">
-                    <Avatar 
-                      src={getUserAvatarByEmail(participant.partner?.email)} 
-                      alt={participant.partner?.name}
-                      size={32}
-                    />
-                    <div className="partner-info">
-                      <span className="partner-name">Partner: {participant.partner.name}</span>
-                      <span className="participant-partner-rank">
-                        ({(partnerRanking?.rankPoints ?? 0).toFixed(2)} pts)
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div className="participant-status">
-                Status: {formatResultStatus(participant.status)}
-              </div>
-            </div>
+                  </Typography>
+                )}
+                {participant.partner && (
+                  <Box className="participant-partner" sx={{ mt: 1, pt: 1, borderTop: 1, borderColor: 'divider' }}>
+                    <Box className="partner-header" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Avatar
+                        src={getUserAvatarByEmail(participant.partner?.email)}
+                        alt={participant.partner?.name}
+                        size={32}
+                      />
+                      <Box>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          Partner: {participant.partner.name}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          ({(partnerRanking?.rankPoints ?? 0).toFixed(2)} pts)
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+                )}
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                  Status: {formatResultStatus(participant.status)}
+                </Typography>
+              </Paper>
             )
           })}
-        </div>
+        </Box>
       ) : (
-        <p className="no-participants">No participants registered yet</p>
+        <Typography variant="body2" color="text.secondary" fontStyle="italic">
+          No participants registered yet
+        </Typography>
       )}
-    </div>
+    </Box>
   )
 }
 
@@ -1200,90 +1136,55 @@ function RegistrationManager({ event, players, onClose, onUpdate, onPlayersChang
   const availablePlayers = rankedPlayers.filter(p => !registeredPlayerIds.includes(p.id))
 
   return (
-    <div style={{
-      marginTop: '15px',
-      padding: '15px',
-      border: '2px solid var(--accent-primary)',
-      borderRadius: '4px',
-      backgroundColor: 'var(--bg-secondary)'
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-        <h6 style={{ margin: 0, color: 'var(--text-primary)' }}>Registration Manager</h6>
-        <button
-          onClick={onClose}
-          style={{
-            padding: '4px 8px',
-            backgroundColor: '#6c757d',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
-        >
+    <Paper
+      variant="outlined"
+      sx={{
+        mt: 2,
+        p: 2,
+        borderColor: 'primary.main',
+        borderWidth: 2,
+        bgcolor: 'action.hover'
+      }}
+    >
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+        <Typography variant="subtitle2">Registration Manager</Typography>
+        <Button size="small" variant="outlined" color="inherit" onClick={onClose}>
           Close
-        </button>
-      </div>
+        </Button>
+      </Stack>
 
       {message && (
-        <div style={{
-          padding: '8px',
-          marginBottom: '15px',
-          backgroundColor: message.includes('✅') ? 'var(--success)' : 'var(--danger)',
-          color: 'white',
-          borderRadius: '4px'
-        }}>
-          {message}
-        </div>
+        <Alert
+          severity={isSuccessMessage(message) ? 'success' : 'error'}
+          onClose={() => setMessage('')}
+          sx={{ mb: 2 }}
+        >
+          {stripMessagePrefix(message)}
+        </Alert>
       )}
 
-      <div style={{ marginBottom: '15px' }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '8px',
-          gap: '10px',
-          flexWrap: 'wrap'
-        }}>
-          <h6 style={{ color: 'var(--text-primary)', margin: 0 }}>Available Players:</h6>
-          <button
-            type="button"
-            onClick={() => setShowAddPlayerModal(true)}
-            style={{
-              padding: '6px 12px',
-              backgroundColor: '#007bff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '0.85em'
-            }}
-          >
-            + Add new player
-          </button>
-        </div>
-        <div style={{ 
-          maxHeight: '200px', 
-          overflowY: 'auto', 
-          border: '1px solid var(--border-color)', 
-          borderRadius: '4px', 
-          padding: '10px',
-          backgroundColor: 'var(--bg-primary)'
-        }}>
-          {availablePlayers.length === 0 ? (
-            <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9em' }}>
-              No available players. Add a new player to get started.
-            </p>
-          ) : (
-            availablePlayers.map(player => (
-              <label key={player.id} style={{ 
-                display: 'block', 
-                marginBottom: '5px',
-                color: 'var(--text-primary)',
-                cursor: 'pointer'
-              }}>
-                <input
-                  type="checkbox"
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }} flexWrap="wrap" useFlexGap>
+        <Typography variant="subtitle2">Available Players:</Typography>
+        <Button size="small" variant="contained" onClick={() => setShowAddPlayerModal(true)}>
+          + Add new player
+        </Button>
+      </Stack>
+
+      <Paper
+        variant="outlined"
+        sx={{ maxHeight: 200, overflowY: 'auto', p: 1, mb: 2, bgcolor: 'background.paper' }}
+      >
+        {availablePlayers.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">
+            No available players. Add a new player to get started.
+          </Typography>
+        ) : (
+          availablePlayers.map(player => (
+            <FormControlLabel
+              key={player.id}
+              control={
+                <Checkbox
+                  size="small"
                   checked={selectedPlayers.includes(player.id)}
                   onChange={(e) => {
                     if (e.target.checked) {
@@ -1292,56 +1193,48 @@ function RegistrationManager({ event, players, onClose, onUpdate, onPlayersChang
                       setSelectedPlayers(selectedPlayers.filter(id => id !== player.id))
                     }
                   }}
-                  style={{ marginRight: '8px' }}
                 />
-                {player.name} (Rank pts: {(player.rankPoints ?? 0).toFixed(2)})
-              </label>
-            ))
-          )}
-        </div>
-      </div>
+              }
+              label={`${player.name} (Rank pts: ${(player.rankPoints ?? 0).toFixed(2)})`}
+              sx={{ display: 'flex', m: 0, mb: 0.25 }}
+            />
+          ))
+        )}
+      </Paper>
 
-      <button
+      <Button
+        variant="contained"
+        color="success"
+        size="small"
         onClick={registerPlayers}
         disabled={loading || selectedPlayers.length === 0}
-        style={{
-          padding: '8px 16px',
-          backgroundColor: '#28a745',
-          color: 'white',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: loading || selectedPlayers.length === 0 ? 'not-allowed' : 'pointer',
-          opacity: loading || selectedPlayers.length === 0 ? 0.6 : 1,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px'
-        }}
+        startIcon={loading ? <CircularProgress size={14} color="inherit" /> : null}
       >
-        {loading && <LoadingSpinner size={14} color="white" />}
         {loading ? 'Registering...' : `Register ${selectedPlayers.length} Player(s)`}
-      </button>
+      </Button>
 
-      {showAddPlayerModal && (
-        <AddPlayerModal
-          onClose={() => setShowAddPlayerModal(false)}
-          onCreated={handlePlayerCreated}
-        />
-      )}
-    </div>
+      <AddPlayerModal
+        open={showAddPlayerModal}
+        onClose={() => setShowAddPlayerModal(false)}
+        onCreated={handlePlayerCreated}
+      />
+    </Paper>
   )
 }
 
-function AddPlayerModal({ onClose, onCreated }) {
+function AddPlayerModal({ open, onClose, onCreated }) {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const handleOverlayClick = (e) => {
-    if (e.target === e.currentTarget && !loading) {
-      onClose()
+  useEffect(() => {
+    if (open) {
+      setFullName('')
+      setEmail('')
+      setError('')
     }
-  }
+  }, [open])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -1382,542 +1275,318 @@ function AddPlayerModal({ onClose, onCreated }) {
   }
 
   return (
-    <div className="delete-modal-overlay" onClick={handleOverlayClick}>
-      <div className="delete-modal" style={{ maxWidth: '420px' }}>
-        <div className="delete-modal-header">
-          <h3 className="delete-modal-title">Add new player</h3>
-          <button
-            type="button"
-            className="delete-modal-close"
-            onClick={onClose}
-            disabled={loading}
-          >
-            ×
-          </button>
-        </div>
+    <Dialog open={open} onClose={loading ? undefined : onClose} maxWidth="xs" fullWidth>
+      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pr: 1 }}>
+        Add new player
+        <IconButton aria-label="close" onClick={onClose} disabled={loading} size="small">
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      <form onSubmit={handleSubmit}>
+        <DialogContent dividers>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Creates a player in the database. They will be selected for this event automatically.
+          </Typography>
 
-        <form onSubmit={handleSubmit}>
-          <div className="delete-modal-content" style={{ textAlign: 'left' }}>
-            <p style={{ marginTop: 0, marginBottom: '16px', color: 'var(--text-secondary)', fontSize: '0.9em' }}>
-              Creates a player in the database. They will be selected for this event automatically.
-            </p>
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
 
-            {error && (
-              <div style={{
-                padding: '8px',
-                marginBottom: '12px',
-                backgroundColor: 'var(--danger)',
-                color: 'white',
-                borderRadius: '4px',
-                fontSize: '0.9em'
-              }}>
-                {error}
-              </div>
-            )}
-
-            <label style={{ display: 'block', marginBottom: '12px' }}>
-              <span style={{ display: 'block', marginBottom: '4px', fontWeight: 600 }}>
-                Full Name <span style={{ color: '#c0392b' }}>*</span>
-              </span>
-              <input
-                type="text"
-                className="form-input"
-                value={fullName}
-                onInput={(e) => setFullName(e.target.value)}
-                placeholder="Jane Doe"
-                disabled={loading}
-                autoFocus
-                required
-                style={{ width: '100%' }}
-              />
-            </label>
-
-            <label style={{ display: 'block', marginBottom: '4px' }}>
-              <span style={{ display: 'block', marginBottom: '4px', fontWeight: 600 }}>
-                Email <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>(optional)</span>
-              </span>
-              <input
-                type="email"
-                className="form-input"
-                value={email}
-                onInput={(e) => setEmail(e.target.value)}
-                placeholder="REMOVED_EMAIL"
-                disabled={loading}
-                style={{ width: '100%' }}
-              />
-            </label>
-          </div>
-
-          <div className="delete-modal-actions">
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={onClose}
+          <Stack spacing={2}>
+            <TextField
+              label="Full Name"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="Jane Doe"
               disabled={loading}
-            >
-              Done
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={loading || !fullName.trim()}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                backgroundColor: '#007bff',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                padding: '8px 16px',
-                cursor: loading || !fullName.trim() ? 'not-allowed' : 'pointer',
-                opacity: loading || !fullName.trim() ? 0.6 : 1
-              }}
-            >
-              {loading && <LoadingSpinner size={16} color="white" />}
-              {loading ? 'Adding...' : 'Add player'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+              required
+              autoFocus
+              size="small"
+              fullWidth
+            />
+            <TextField
+              label="Email (optional)"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="REMOVED_EMAIL"
+              disabled={loading}
+              size="small"
+              fullWidth
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={onClose} disabled={loading} color="inherit">
+            Done
+          </Button>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={loading || !fullName.trim()}
+            startIcon={loading ? <CircularProgress size={16} color="inherit" /> : null}
+          >
+            {loading ? 'Adding...' : 'Add player'}
+          </Button>
+        </DialogActions>
+      </form>
+    </Dialog>
   )
 }
 
-function AlertModal({ title, message, onClose }) {
-  const handleOverlayClick = (e) => {
-    if (e.target === e.currentTarget) {
-      onClose()
-    }
-  }
-
+function AlertModal({ open, title, message, onClose }) {
   return (
-    <div className="delete-modal-overlay" onClick={handleOverlayClick}>
-      <div className="delete-modal" style={{ maxWidth: '440px' }}>
-        <div className="delete-modal-header">
-          <h3 className="delete-modal-title">{title}</h3>
-          <button className="delete-modal-close" onClick={onClose} type="button">×</button>
-        </div>
-
-        <div className="delete-modal-content">
-          <div className="delete-warning-icon">😱</div>
-          <p
-            style={{
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pr: 1 }}>
+        {title}
+        <IconButton aria-label="close" onClick={onClose} size="small">
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent>
+        <Box sx={{ textAlign: 'center', py: 1 }}>
+          <Typography sx={{ fontSize: '3rem', lineHeight: 1, mb: 1 }}>😱</Typography>
+          <Typography
+            sx={{
               fontSize: '1.75rem',
               fontWeight: 700,
               textAlign: 'center',
-              margin: '0 0 16px 0',
-              color: 'var(--text-primary)'
+              mb: 2
             }}
           >
             Oh My!
-          </p>
-          <p className="delete-warning-text">{message}</p>
-        </div>
-
-        <div className="delete-modal-actions">
-          <button className="btn btn-primary" onClick={onClose} type="button">
-            OK
-          </button>
-        </div>
-      </div>
-    </div>
+          </Typography>
+          <DialogContentText sx={{ textAlign: 'center' }}>
+            {message}
+          </DialogContentText>
+        </Box>
+      </DialogContent>
+      <DialogActions sx={{ justifyContent: 'center', pb: 2 }}>
+        <Button variant="contained" onClick={onClose}>
+          OK
+        </Button>
+      </DialogActions>
+    </Dialog>
   )
 }
 
-function DeleteConfirmationModal({ tournament, onConfirm, onCancel, loading }) {
-  const handleOverlayClick = (e) => {
-    if (e.target === e.currentTarget) {
-      onCancel()
-    }
-  }
+function DeleteConfirmationModal({ open, tournament, onConfirm, onCancel, loading }) {
+  if (!tournament) return null
 
   return (
-    <div className="delete-modal-overlay" onClick={handleOverlayClick}>
-      <div className="delete-modal">
-        <div className="delete-modal-header">
-          <h3 className="delete-modal-title">Delete Tournament</h3>
-          <button className="delete-modal-close" onClick={onCancel}>×</button>
-        </div>
-
-        <div className="delete-modal-content">
-          <div className="delete-warning-icon">⚠️</div>
-          <p className="delete-warning-text">
-            Are you sure you want to delete the tournament <strong>"{tournament.name}"</strong>?
-          </p>
-          <p className="delete-warning-subtext">
+    <Dialog open={open} onClose={loading ? undefined : onCancel} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pr: 1 }}>
+        Delete Tournament
+        <IconButton aria-label="close" onClick={onCancel} disabled={loading} size="small">
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent>
+        <Box sx={{ textAlign: 'center', py: 1 }}>
+          <Typography sx={{ fontSize: '3rem', lineHeight: 1, mb: 2 }}>⚠️</Typography>
+          <DialogContentText sx={{ mb: 1.5, color: 'text.primary' }}>
+            Are you sure you want to delete the tournament <strong>&quot;{tournament.name}&quot;</strong>?
+          </DialogContentText>
+          <DialogContentText>
             This action cannot be undone. All associated events, matches, and participant data will be permanently removed.
-          </p>
-        </div>
-
-        <div className="delete-modal-actions">
-          <button className="btn btn-secondary" onClick={onCancel} disabled={loading}>
-            Cancel
-          </button>
-          <button 
-            className="btn btn-danger" 
-            onClick={onConfirm}
-            disabled={loading}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}
-          >
-            {loading && <LoadingSpinner size={16} color="white" />}
-            {loading ? 'Deleting...' : 'Delete Tournament'}
-          </button>
-        </div>
-      </div>
-    </div>
+          </DialogContentText>
+        </Box>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, py: 2 }}>
+        <Button onClick={onCancel} disabled={loading} color="inherit">
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          color="error"
+          onClick={onConfirm}
+          disabled={loading}
+          startIcon={loading ? <CircularProgress size={16} color="inherit" /> : null}
+        >
+          {loading ? 'Deleting...' : 'Delete Tournament'}
+        </Button>
+      </DialogActions>
+    </Dialog>
   )
 }
 
-function EditTournamentModal({ tournament, onSave, onCancel, loading }) {
-  // Get today's date in local timezone
-  const getLocalDateString = () => {
-    const today = new Date()
-    const year = today.getFullYear()
-    const month = String(today.getMonth() + 1).padStart(2, '0')
-    const day = String(today.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
-  }
-
+function EditTournamentModal({ open, tournament, onSave, onCancel, loading }) {
   const [formData, setFormData] = useState({
-    date: tournament?.tournament_date || getLocalDateString(),
-    description: tournament?.description || '',
-    eventType: tournament?.events?.[0]?.event_type || 'singles'
+    date: getLocalDateString(),
+    description: '',
+    eventType: 'singles'
   })
+
+  useEffect(() => {
+    if (open && tournament) {
+      setFormData({
+        date: tournament.tournament_date || getLocalDateString(),
+        description: tournament.description || '',
+        eventType: tournament.events?.[0]?.event_type || 'singles'
+      })
+    }
+  }, [open, tournament])
 
   const handleSubmit = (e) => {
     e.preventDefault()
     onSave(formData)
   }
 
-  return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: 'var(--card-background)',
-        borderRadius: '8px',
-        padding: '30px',
-        width: '100%',
-        maxWidth: '500px',
-        border: '1px solid var(--border-color)',
-        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)'
-      }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '25px'
-        }}>
-          <h2 style={{ 
-            margin: 0, 
-            color: 'var(--text-color)',
-            fontSize: '24px'
-          }}>
-            Edit Tournament
-          </h2>
-          <button
-            onClick={onCancel}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '24px',
-              cursor: 'pointer',
-              color: 'var(--text-secondary)',
-              padding: '0',
-              width: '30px',
-              height: '30px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            ×
-          </button>
-        </div>
+  if (!tournament) return null
 
-        <form onSubmit={handleSubmit} style={{
-          padding: '20px',
-          border: '1px solid var(--border-color)',
-          borderRadius: '8px',
-          backgroundColor: 'var(--background-color)'
-        }}>
-          <div style={{ marginBottom: '15px', padding: '10px', backgroundColor: 'var(--card-background)', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px', color: 'var(--text-secondary)' }}>Tournament Name (Auto-generated):</label>
-            <div style={{ fontSize: '16px', fontWeight: '500', color: 'var(--text-color)' }}>{tournament?.name}</div>
-          </div>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1em', marginBottom: '15px' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '5px' }}>Date:</label>
-              <input
+  return (
+    <Dialog open={open} onClose={loading ? undefined : onCancel} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pr: 1 }}>
+        Edit Tournament
+        <IconButton aria-label="close" onClick={onCancel} disabled={loading} size="small">
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      <form onSubmit={handleSubmit}>
+        <DialogContent dividers>
+          <Stack spacing={2}>
+            <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'action.hover' }}>
+              <Typography variant="caption" color="text.secondary" display="block">
+                Tournament Name (Auto-generated):
+              </Typography>
+              <Typography variant="body1" fontWeight={500}>
+                {tournament.name}
+              </Typography>
+            </Paper>
+
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <TextField
+                label="Date"
                 type="date"
                 value={formData.date}
                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                 required
-                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                size="small"
+                fullWidth
+                slotProps={{ inputLabel: { shrink: true } }}
               />
-            </div>
+              <FormControl size="small" fullWidth>
+                <InputLabel id="edit-event-type-label">Event Type</InputLabel>
+                <Select
+                  labelId="edit-event-type-label"
+                  label="Event Type"
+                  value={formData.eventType}
+                  onChange={(e) => setFormData({ ...formData, eventType: e.target.value })}
+                >
+                  <MenuItem value="singles">Singles</MenuItem>
+                  <MenuItem value="doubles">Doubles</MenuItem>
+                </Select>
+              </FormControl>
+            </Stack>
 
-            <div>
-              <label style={{ display: 'block', marginBottom: '5px' }}>Event Type:</label>
-              <select
-                value={formData.eventType}
-                onChange={(e) => setFormData({ ...formData, eventType: e.target.value })}
-                style={{ 
-                  width: '100%', 
-                  padding: '8px', 
-                  borderRadius: '4px', 
-                  border: '1px solid #ddd',
-                  fontSize: '14px'
-                }}
-              >
-                <option value="singles">Singles</option>
-                <option value="doubles">Doubles</option>
-              </select>
-            </div>
-          </div>
-
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>Description:</label>
-            <textarea
+            <TextField
+              label="Description"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              rows="3"
-              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+              multiline
+              rows={3}
+              size="small"
+              fullWidth
             />
-          </div>
-
-          <div style={{ display: 'flex', gap: '15px', justifyContent: 'flex-end' }}>
-            <button
-              type="button"
-              onClick={onCancel}
-              disabled={loading}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: 'transparent',
-                color: 'var(--text-secondary)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '4px',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.6 : 1
-              }}
-            >
-              Cancel
-            </button>
-            
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: '#28a745',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.6 : 1,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-            >
-              {loading && <LoadingSpinner size={16} color="white" />}
-              {loading ? 'Saving...' : 'Save Changes'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={onCancel} disabled={loading} color="inherit">
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            variant="contained"
+            color="success"
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={16} color="inherit" /> : null}
+          >
+            {loading ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </DialogActions>
+      </form>
+    </Dialog>
   )
 }
 
-function EditEventModal({ event, onSave, onCancel, loading }) {
+function EditEventModal({ open, event, onSave, onCancel, loading }) {
   const [formData, setFormData] = useState({
-    eventType: event?.event_type || 'singles',
-    status: event?.status || 'registration'
+    eventType: 'singles',
+    status: 'registration'
   })
+
+  useEffect(() => {
+    if (open && event) {
+      setFormData({
+        eventType: event.event_type || 'singles',
+        status: event.status || 'registration'
+      })
+    }
+  }, [open, event])
 
   const handleSubmit = (e) => {
     e.preventDefault()
     onSave(formData)
   }
 
-  const handleOverlayClick = (e) => {
-    if (e.target === e.currentTarget) {
-      onCancel()
-    }
-  }
+  if (!event) return null
 
   return (
-    <div 
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000,
-        padding: '20px'
-      }}
-      onClick={handleOverlayClick}
-    >
-      <div style={{
-        backgroundColor: 'var(--card-background)',
-        borderRadius: '8px',
-        padding: '30px',
-        width: '100%',
-        maxWidth: '500px',
-        border: '1px solid var(--border-color)',
-        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)'
-      }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '25px'
-        }}>
-          <h2 style={{ 
-            margin: 0, 
-            color: 'var(--text-color)',
-            fontSize: '24px'
-          }}>
-            Edit Event
-          </h2>
-          <button
-            onClick={onCancel}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '24px',
-              cursor: 'pointer',
-              color: 'var(--text-secondary)',
-              padding: '0',
-              width: '30px',
-              height: '30px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            ×
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} style={{
-          padding: '20px',
-          border: '1px solid var(--border-color)',
-          borderRadius: '8px',
-          backgroundColor: 'var(--background-color)'
-        }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1em', marginBottom: '15px' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '5px' }}>Event Type:</label>
-              <select
+    <Dialog open={open} onClose={loading ? undefined : onCancel} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pr: 1 }}>
+        Edit Event
+        <IconButton aria-label="close" onClick={onCancel} disabled={loading} size="small">
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      <form onSubmit={handleSubmit}>
+        <DialogContent dividers>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <FormControl size="small" fullWidth>
+              <InputLabel id="edit-event-modal-type-label">Event Type</InputLabel>
+              <Select
+                labelId="edit-event-modal-type-label"
+                label="Event Type"
                 value={formData.eventType}
                 onChange={(e) => setFormData({ ...formData, eventType: e.target.value })}
-                style={{ 
-                  width: '100%', 
-                  padding: '8px', 
-                  borderRadius: '4px', 
-                  border: '1px solid #ddd',
-                  fontSize: '14px'
-                }}
               >
-                <option value="singles">Singles</option>
-                <option value="doubles">Doubles</option>
-              </select>
-            </div>
-
-            <div>
-              <label style={{ display: 'block', marginBottom: '5px' }}>Status:</label>
-              <select
+                <MenuItem value="singles">Singles</MenuItem>
+                <MenuItem value="doubles">Doubles</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl size="small" fullWidth>
+              <InputLabel id="edit-event-status-label">Status</InputLabel>
+              <Select
+                labelId="edit-event-status-label"
+                label="Status"
                 value={formData.status}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                style={{ 
-                  width: '100%', 
-                  padding: '8px', 
-                  borderRadius: '4px', 
-                  border: '1px solid #ddd',
-                  fontSize: '14px'
-                }}
               >
-                <option value="registration">Registration</option>
-                <option value="draw_created">Draw Created</option>
-                <option value="in_progress">In Progress</option>
-                <option value="completed">Completed</option>
-              </select>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: '15px', justifyContent: 'flex-end' }}>
-            <button
-              type="button"
-              onClick={onCancel}
-              disabled={loading}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: 'transparent',
-                color: 'var(--text-secondary)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '4px',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.6 : 1
-              }}
-            >
-              Cancel
-            </button>
-            
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: '#28a745',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.6 : 1,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-            >
-              {loading && <LoadingSpinner size={16} color="white" />}
-              {loading ? 'Saving...' : 'Save Changes'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+                <MenuItem value="registration">Registration</MenuItem>
+                <MenuItem value="draw_created">Draw Created</MenuItem>
+                <MenuItem value="in_progress">In Progress</MenuItem>
+                <MenuItem value="completed">Completed</MenuItem>
+              </Select>
+            </FormControl>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={onCancel} disabled={loading} color="inherit">
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            variant="contained"
+            color="success"
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={16} color="inherit" /> : null}
+          >
+            {loading ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </DialogActions>
+      </form>
+    </Dialog>
   )
-}
-
-function getStatusColor(status) {
-  switch (status) {
-    case 'registration': return '#17a2b8'
-    case 'draw_created': return '#ffc107'
-    case 'in_progress': return '#fd7e14'
-    case 'completed': return '#28a745'
-    default: return '#6c757d'
-  }
 }

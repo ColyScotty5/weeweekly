@@ -1,599 +1,322 @@
-import { h } from 'preact';
-import { useState } from 'preact/hooks';
-import { useAuth } from '../contexts/AuthContext';
-import Avatar from './Avatar';
+import { useState } from 'react'
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  IconButton,
+  Typography,
+  TextField,
+  Button,
+  Alert,
+  Stack,
+  Box,
+  Divider,
+  Paper
+} from '@mui/material'
+import CloseIcon from '@mui/icons-material/Close'
+import { useAuth } from '../contexts/AuthContext'
+import Avatar from './Avatar'
 
-const Profile = ({ onClose }) => {
-  const { user, updateProfile } = useAuth();
+export default function Profile({ onClose }) {
+  const { user, updateProfile } = useAuth()
   const [formData, setFormData] = useState({
     currentPassword: 'REMOVED',
     newPassword: 'REMOVED',
     confirmPassword: 'REMOVED'
-  });
+  })
   const [emailData, setEmailData] = useState({
     newEmail: '',
     confirmEmail: ''
-  });
-  const [avatar, setAvatar] = useState(user?.avatar || null);
-  const [avatarFile, setAvatarFile] = useState(null);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [loading, setLoading] = useState(false);
+  })
+  const [avatar, setAvatar] = useState(user?.avatar || null)
+  const [avatarFile, setAvatarFile] = useState(null)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const clearMessages = () => {
+    if (error) setError('')
+    if (success) setSuccess('')
+  }
 
   const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (error) setError('');
-    if (success) setSuccess('');
-  };
+    setFormData((prev) => ({ ...prev, [field]: value }))
+    clearMessages()
+  }
 
   const handleEmailChange = (field, value) => {
-    setEmailData(prev => ({ ...prev, [field]: value }));
-    if (error) setError('');
-    if (success) setSuccess('');
-  };
+    setEmailData((prev) => ({ ...prev, [field]: value }))
+    clearMessages()
+  }
 
   const handleAvatarChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        setError('Avatar file size must be less than 5MB');
-        return;
-      }
-      
-      if (!file.type.startsWith('image/')) {
-        setError('Please select a valid image file');
-        return;
-      }
+    const file = e.target.files[0]
+    if (!file) return
 
-      setAvatarFile(file);
-      
-      // Create preview URL
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setAvatar(e.target.result);
-      };
-      reader.readAsDataURL(file);
-      
-      if (error) setError('');
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Avatar file size must be less than 5MB')
+      return
     }
-  };
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please select a valid image file')
+      return
+    }
+
+    setAvatarFile(file)
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      setAvatar(event.target.result)
+    }
+    reader.readAsDataURL(file)
+    clearMessages()
+  }
 
   const handlePasswordChange = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
+    e.preventDefault()
+    setError('')
+    setSuccess('')
 
     if (!formData.currentPassword) {
-      setError('Current password is required');
-      return;
+      setError('Current password is required')
+      return
     }
-
     if (!formData.newPassword) {
-      setError('New password is required');
-      return;
+      setError('New password is required')
+      return
     }
-
     if (formData.newPassword.length < 6) {
-      setError('New password must be at least 6 characters long');
-      return;
+      setError('New password must be at least 6 characters long')
+      return
     }
-
     if (formData.newPassword !== formData.confirmPassword) {
-      setError('New passwords do not match');
-      return;
+      setError('New passwords do not match')
+      return
     }
-
     if (formData.currentPassword === formData.newPassword) {
-      setError('New password must be different from current password');
-      return;
+      setError('New password must be different from current password')
+      return
     }
 
-    setLoading(true);
+    setLoading(true)
     try {
       await updateProfile({
         currentPassword: formData.currentPassword,
         newPassword: formData.newPassword
-      });
-      
-      setSuccess('Password updated successfully!');
-      setFormData({
-        currentPassword: 'REMOVED',
-        newPassword: 'REMOVED',
-        confirmPassword: 'REMOVED'
-      });
+      })
+      setSuccess('Password updated successfully!')
+      setFormData({ currentPassword: 'REMOVED', newPassword: 'REMOVED', confirmPassword: 'REMOVED' })
     } catch (err) {
-      setError(err.message);
+      setError(err.message)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleEmailUpdate = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
+    e.preventDefault()
+    setError('')
+    setSuccess('')
 
     if (!emailData.newEmail) {
-      setError('New email address is required');
-      return;
+      setError('New email address is required')
+      return
     }
-
     if (emailData.newEmail !== emailData.confirmEmail) {
-      setError('Email addresses do not match');
-      return;
+      setError('Email addresses do not match')
+      return
     }
-
     if (emailData.newEmail === user.email) {
-      setError('New email must be different from current email');
-      return;
+      setError('New email must be different from current email')
+      return
     }
 
-    setLoading(true);
+    setLoading(true)
     try {
-      await updateProfile({
-        newEmail: emailData.newEmail
-      });
-      
-      setSuccess('Email address updated successfully!');
-      setEmailData({
-        newEmail: '',
-        confirmEmail: ''
-      });
+      await updateProfile({ newEmail: emailData.newEmail })
+      setSuccess('Email address updated successfully!')
+      setEmailData({ newEmail: '', confirmEmail: '' })
     } catch (err) {
-      setError(err.message);
+      setError(err.message)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleAvatarSave = async () => {
-    if (!avatarFile && !avatar) return;
-    
-    setLoading(true);
-    setError('');
-    setSuccess('');
-    
+    if (!avatarFile && !avatar) return
+    setLoading(true)
+    setError('')
+    setSuccess('')
     try {
-      await updateProfile({
-        avatar: avatar
-      });
-      setSuccess('Avatar updated successfully!');
-      setAvatarFile(null);
+      await updateProfile({ avatar })
+      setSuccess('Avatar updated successfully!')
+      setAvatarFile(null)
     } catch (err) {
-      setError(err.message);
+      setError(err.message)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const removeAvatar = async () => {
-    setLoading(true);
-    setError('');
-    setSuccess('');
-    
+    setLoading(true)
+    setError('')
+    setSuccess('')
     try {
-      await updateProfile({ avatar: null });
-      setAvatar(null);
-      setAvatarFile(null);
-      setSuccess('Avatar removed successfully!');
+      await updateProfile({ avatar: null })
+      setAvatar(null)
+      setAvatarFile(null)
+      setSuccess('Avatar removed successfully!')
     } catch (err) {
-      setError(err.message);
+      setError(err.message)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: 'var(--card-background)',
-        borderRadius: '8px',
-        padding: '30px',
-        width: '100%',
-        maxWidth: '500px',
-        maxHeight: '90vh',
-        overflowY: 'auto',
-        border: '1px solid var(--border-color)',
-        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)'
-      }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '25px'
-        }}>
-          <h2 style={{ 
-            margin: 0, 
-            color: 'var(--text-color)',
-            fontSize: '24px'
-          }}>
-            Profile Settings
-          </h2>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '24px',
-              cursor: 'pointer',
-              color: 'var(--text-secondary)',
-              padding: '0',
-              width: '30px',
-              height: '30px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            ×
-          </button>
-        </div>
+    <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ pr: 6 }}>
+        Profile Settings
+        <IconButton
+          aria-label="Close"
+          onClick={onClose}
+          sx={{ position: 'absolute', right: 8, top: 8 }}
+        >
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
 
-        {/* User Info */}
-        <div style={{
-          marginBottom: '30px',
-          padding: '20px',
-          backgroundColor: 'var(--background-color)',
-          borderRadius: '6px',
-          border: '1px solid var(--border-color)'
-        }}>
-          <h3 style={{ 
-            margin: '0 0 15px 0', 
-            color: 'var(--text-color)',
-            fontSize: '18px'
-          }}>
-            User Information
-          </h3>
-          <p style={{ margin: '5px 0', color: 'var(--text-secondary)' }}>
-            <strong>Name:</strong> {user?.name}
-          </p>
-          <p style={{ margin: '5px 0', color: 'var(--text-secondary)' }}>
-            <strong>Email:</strong> {user?.email}
-          </p>
-          <p style={{ margin: '5px 0', color: 'var(--text-secondary)' }}>
-            <strong>Role:</strong> {user?.role}
-          </p>
-        </div>
+      <DialogContent dividers>
+        <Stack spacing={3}>
+          <Paper variant="outlined" sx={{ p: 2 }}>
+            <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+              User Information
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              <strong>Name:</strong> {user?.name}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              <strong>Email:</strong> {user?.email}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              <strong>Role:</strong> {user?.role}
+            </Typography>
+          </Paper>
 
-        {/* Change Email Section */}
-        <div style={{ marginBottom: '30px' }}>
-          <h3 style={{ 
-            margin: '0 0 15px 0', 
-            color: 'var(--text-color)',
-            fontSize: '18px'
-          }}>
-            Change Email Address
-          </h3>
-          
-          <form onSubmit={handleEmailUpdate}>
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '5px',
-                fontSize: '14px',
-                color: 'var(--text-color)'
-              }}>
-                New Email Address
-              </label>
-              <input
+          <Box component="form" onSubmit={handleEmailUpdate}>
+            <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+              Change Email Address
+            </Typography>
+            <Stack spacing={2}>
+              <TextField
+                label="New Email Address"
                 type="email"
                 value={emailData.newEmail}
                 onChange={(e) => handleEmailChange('newEmail', e.target.value)}
-                placeholder="Enter new email address"
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  borderRadius: '4px',
-                  border: '1px solid var(--border-color)',
-                  fontSize: '14px',
-                  backgroundColor: 'var(--input-background)',
-                  color: 'var(--text-color)',
-                  boxSizing: 'border-box'
-                }}
                 disabled={loading}
               />
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '5px',
-                fontSize: '14px',
-                color: 'var(--text-color)'
-              }}>
-                Confirm New Email Address
-              </label>
-              <input
+              <TextField
+                label="Confirm New Email Address"
                 type="email"
                 value={emailData.confirmEmail}
                 onChange={(e) => handleEmailChange('confirmEmail', e.target.value)}
-                placeholder="Confirm new email address"
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  borderRadius: '4px',
-                  border: '1px solid var(--border-color)',
-                  fontSize: '14px',
-                  backgroundColor: 'var(--input-background)',
-                  color: 'var(--text-color)',
-                  boxSizing: 'border-box'
-                }}
                 disabled={loading}
               />
-            </div>
+              <Box>
+                <Button type="submit" variant="contained" disabled={loading}>
+                  {loading ? 'Updating...' : 'Update Email'}
+                </Button>
+              </Box>
+            </Stack>
+          </Box>
 
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: '#007bff',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                fontSize: '14px',
-                opacity: loading ? 0.6 : 1
-              }}
-            >
-              {loading ? 'Updating...' : 'Update Email'}
-            </button>
-          </form>
-        </div>
+          <Divider />
 
-        {/* Avatar Section */}
-        <div style={{ marginBottom: '30px' }}>
-          <h3 style={{ 
-            margin: '0 0 15px 0', 
-            color: 'var(--text-color)',
-            fontSize: '18px'
-          }}>
-            Profile Picture
-          </h3>
-          
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '20px',
-            marginBottom: '15px'
-          }}>
-            <Avatar 
-              src={avatar} 
-              alt="Profile Avatar"
-              size={80}
-              className="profile-avatar"
-              style={{ border: '2px solid var(--border-color)' }}
-            />
-            
-            <div>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleAvatarChange}
-                style={{ display: 'none' }}
-                id="avatar-upload"
-              />
-              <label
-                htmlFor="avatar-upload"
-                style={{
-                  display: 'inline-block',
-                  padding: '8px 16px',
-                  backgroundColor: '#007bff',
-                  color: 'white',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  marginRight: '10px'
-                }}
-              >
-                Choose Image
-              </label>
-              
-              {avatar && (
-                <>
-                  {avatarFile && (
-                    <button
-                      onClick={handleAvatarSave}
-                      disabled={loading}
-                      style={{
-                        padding: '8px 16px',
-                        backgroundColor: '#28a745',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: loading ? 'not-allowed' : 'pointer',
-                        fontSize: '14px',
-                        marginRight: '10px',
-                        opacity: loading ? 0.6 : 1
-                      }}
-                    >
-                      Save
-                    </button>
-                  )}
-                  
-                  <button
+          <Box>
+            <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+              Profile Picture
+            </Typography>
+            <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
+              <Avatar src={avatar} alt="Profile Avatar" size={80} />
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                <Button variant="contained" component="label" disabled={loading}>
+                  Choose Image
+                  <input
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={handleAvatarChange}
+                  />
+                </Button>
+                {avatar && avatarFile && (
+                  <Button
+                    variant="contained"
+                    color="secondary"
+                    onClick={handleAvatarSave}
+                    disabled={loading}
+                  >
+                    Save
+                  </Button>
+                )}
+                {avatar && (
+                  <Button
+                    variant="outlined"
+                    color="error"
                     onClick={removeAvatar}
                     disabled={loading}
-                    style={{
-                      padding: '8px 16px',
-                      backgroundColor: '#dc3545',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: loading ? 'not-allowed' : 'pointer',
-                      fontSize: '14px',
-                      opacity: loading ? 0.6 : 1
-                    }}
                   >
                     Remove
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-          <p style={{ 
-            fontSize: '12px', 
-            color: 'var(--text-secondary)', 
-            margin: 0 
-          }}>
-            Supported formats: JPG, PNG, GIF. Max size: 5MB
-          </p>
-        </div>
+                  </Button>
+                )}
+              </Stack>
+            </Stack>
+            <Typography variant="caption" color="text.secondary">
+              Supported formats: JPG, PNG, GIF. Max size: 5MB
+            </Typography>
+          </Box>
 
-        {/* Change Password Section */}
-        <div style={{ marginBottom: '20px' }}>
-          <h3 style={{ 
-            margin: '0 0 15px 0', 
-            color: 'var(--text-color)',
-            fontSize: '18px'
-          }}>
-            Change Password
-          </h3>
-          
-          <form onSubmit={handlePasswordChange}>
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '5px',
-                fontSize: '14px',
-                color: 'var(--text-color)'
-              }}>
-                Current Password
-              </label>
-              <input
+          <Divider />
+
+          <Box component="form" onSubmit={handlePasswordChange}>
+            <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+              Change Password
+            </Typography>
+            <Stack spacing={2}>
+              <TextField
+                label="Current Password"
                 type="password"
                 value={formData.currentPassword}
                 onChange={(e) => handleInputChange('currentPassword', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  borderRadius: '4px',
-                  border: '1px solid var(--border-color)',
-                  fontSize: '14px',
-                  backgroundColor: 'var(--input-background)',
-                  color: 'var(--text-color)',
-                  boxSizing: 'border-box'
-                }}
                 disabled={loading}
               />
-            </div>
-
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '5px',
-                fontSize: '14px',
-                color: 'var(--text-color)'
-              }}>
-                New Password
-              </label>
-              <input
+              <TextField
+                label="New Password"
                 type="password"
                 value={formData.newPassword}
                 onChange={(e) => handleInputChange('newPassword', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  borderRadius: '4px',
-                  border: '1px solid var(--border-color)',
-                  fontSize: '14px',
-                  backgroundColor: 'var(--input-background)',
-                  color: 'var(--text-color)',
-                  boxSizing: 'border-box'
-                }}
                 disabled={loading}
               />
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '5px',
-                fontSize: '14px',
-                color: 'var(--text-color)'
-              }}>
-                Confirm New Password
-              </label>
-              <input
+              <TextField
+                label="Confirm New Password"
                 type="password"
                 value={formData.confirmPassword}
                 onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  borderRadius: '4px',
-                  border: '1px solid var(--border-color)',
-                  fontSize: '14px',
-                  backgroundColor: 'var(--input-background)',
-                  color: 'var(--text-color)',
-                  boxSizing: 'border-box'
-                }}
                 disabled={loading}
               />
-            </div>
+              <Box>
+                <Button type="submit" variant="contained" color="secondary" disabled={loading}>
+                  {loading ? 'Updating...' : 'Update Password'}
+                </Button>
+              </Box>
+            </Stack>
+          </Box>
 
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: '#28a745',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                fontSize: '14px',
-                opacity: loading ? 0.6 : 1
-              }}
-            >
-              {loading ? 'Updating...' : 'Update Password'}
-            </button>
-          </form>
-        </div>
-
-        {/* Messages */}
-        {error && (
-          <div style={{
-            backgroundColor: '#fee',
-            color: '#c53030',
-            padding: '12px',
-            borderRadius: '4px',
-            fontSize: '14px',
-            marginBottom: '15px',
-            border: '1px solid #fed7d7'
-          }}>
-            {error}
-          </div>
-        )}
-
-        {success && (
-          <div style={{
-            backgroundColor: '#f0fff4',
-            color: '#22543d',
-            padding: '12px',
-            borderRadius: '4px',
-            fontSize: '14px',
-            marginBottom: '15px',
-            border: '1px solid #9ae6b4'
-          }}>
-            {success}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-export default Profile;
+          {error && <Alert severity="error">{error}</Alert>}
+          {success && <Alert severity="success">{success}</Alert>}
+        </Stack>
+      </DialogContent>
+    </Dialog>
+  )
+}

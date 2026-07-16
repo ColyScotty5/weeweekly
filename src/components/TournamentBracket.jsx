@@ -1,4 +1,25 @@
-import { useState, useEffect } from 'preact/hooks'
+import { useState, useEffect } from 'react'
+import Box from '@mui/material/Box'
+import Typography from '@mui/material/Typography'
+import Button from '@mui/material/Button'
+import IconButton from '@mui/material/IconButton'
+import Dialog from '@mui/material/Dialog'
+import DialogTitle from '@mui/material/DialogTitle'
+import DialogContent from '@mui/material/DialogContent'
+import DialogActions from '@mui/material/DialogActions'
+import FormControl from '@mui/material/FormControl'
+import InputLabel from '@mui/material/InputLabel'
+import Select from '@mui/material/Select'
+import MenuItem from '@mui/material/MenuItem'
+import TextField from '@mui/material/TextField'
+import Alert from '@mui/material/Alert'
+import Stack from '@mui/material/Stack'
+import Paper from '@mui/material/Paper'
+import Chip from '@mui/material/Chip'
+import Snackbar from '@mui/material/Snackbar'
+import CircularProgress from '@mui/material/CircularProgress'
+import CloseIcon from '@mui/icons-material/Close'
+import { useTheme, alpha } from '@mui/material/styles'
 import { matchesApi } from '../lib/supabase.js'
 import { createNextRoundMatches, syncConsolationMatches, syncNextRoundMatches } from '../lib/tournamentUtils.js'
 import Avatar from './Avatar.jsx'
@@ -9,6 +30,7 @@ export default function TournamentBracket({ event, bracketType = 'main', onMatch
   const [loading, setLoading] = useState(false)
   const [selectedMatch, setSelectedMatch] = useState(null)
   const [showDialog, setShowDialog] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
 
   useEffect(() => {
     if (event?.id) {
@@ -20,9 +42,8 @@ export default function TournamentBracket({ event, bracketType = 'main', onMatch
     setLoading(true)
     try {
       const data = await matchesApi.getByEvent(event.id)
-      
+
       if (bracketType === 'consolation') {
-        // Sync consolation pairs from first-round main losers, then show consolation only
         try {
           await syncConsolationMatches(event.id)
         } catch (error) {
@@ -35,7 +56,6 @@ export default function TournamentBracket({ event, bracketType = 'main', onMatch
         )
         setMatches(consolationMatches)
       } else {
-        // Filter for main bracket matches; also refresh progressive next-round slots
         const mainMatches = data.filter(match => match.bracket_type === 'main' || !match.bracket_type)
         const firstRound = mainMatches
           .map((match) => match.round_name)
@@ -43,7 +63,6 @@ export default function TournamentBracket({ event, bracketType = 'main', onMatch
         if (firstRound) {
           try {
             await syncNextRoundMatches(event.id, firstRound)
-            // Also chain any later rounds that already have winners
             const refreshed = await matchesApi.getByEvent(event.id)
             const rounds = [...new Set(
               refreshed
@@ -71,54 +90,56 @@ export default function TournamentBracket({ event, bracketType = 'main', onMatch
   }
 
   if (loading) {
-    return <div style={{ textAlign: 'center', padding: '20px' }}>Loading bracket...</div>
+    return (
+      <Box sx={{ textAlign: 'center', p: 2.5 }}>
+        <CircularProgress size={24} sx={{ mr: 1 }} />
+        <Typography component="span" color="text.secondary">Loading bracket...</Typography>
+      </Box>
+    )
   }
 
   if (!matches.length) {
     if (bracketType === 'consolation') {
       return (
-        <div style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
+        <Typography color="text.secondary" sx={{ textAlign: 'center', p: 2.5 }}>
           No consolation bracket available yet. Complete adjacent first-round pairs (match 1 & 2, etc.) to generate consolation.
-        </div>
+        </Typography>
       )
     }
     return (
-      <div style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
+      <Typography color="text.secondary" sx={{ textAlign: 'center', p: 2.5 }}>
         No bracket generated yet. Generate a draw to see the tournament bracket.
-      </div>
+      </Typography>
     )
   }
 
-  // Group matches by round
   const matchesByRound = groupMatchesByRound(matches)
   const rounds = Object.keys(matchesByRound).sort((a, b) => getRoundOrder(a) - getRoundOrder(b))
 
-  // Calculate bracket container height based on first round matches
   const calculateBracketHeight = () => {
     const firstRoundMatches = rounds.length > 0 ? matchesByRound[rounds[0]]?.length || 0 : 0
     const matchHeight = 140
-    
-    // Use the same adaptive gap calculation as in RoundColumn
+
     const calculateGap = (matchCount) => {
       if (matchCount <= 4) return 80
       if (matchCount <= 8) return 60
       if (matchCount <= 16) return 40
       return 30
     }
-    
+
     const matchGap = calculateGap(firstRoundMatches)
     const baseOffset = 20
-    const headerHeight = 80 // Approximate header height
-    
-    return headerHeight + baseOffset * 2 + (firstRoundMatches * matchHeight) + ((firstRoundMatches - 1) * matchGap) + 100 // Extra padding
+    const headerHeight = 80
+
+    return headerHeight + baseOffset * 2 + (firstRoundMatches * matchHeight) + ((firstRoundMatches - 1) * matchGap) + 100
   }
 
   return (
-    <div className="tournament-bracket">
-      <h3>
+    <Box className="tournament-bracket">
+      <Typography variant="h6" component="h3" gutterBottom>
         {bracketType === 'consolation' ? 'Consolation' : 'Main'} Bracket - {event.event_type?.charAt(0).toUpperCase() + event.event_type?.slice(1)}
-      </h3>
-      
+      </Typography>
+
       <div className="bracket-container" style={{ minHeight: `${calculateBracketHeight()}px` }}>
         <BracketLines matches={matches} rounds={rounds} />
         {rounds.map((round, roundIndex) => (
@@ -131,7 +152,6 @@ export default function TournamentBracket({ event, bracketType = 'main', onMatch
             eventStatus={event.status}
             onMatchUpdate={onMatchUpdate}
             onMatchClick={(match) => {
-              // Disable match editing for completed events
               if (event.status === 'completed') {
                 return
               }
@@ -144,184 +164,149 @@ export default function TournamentBracket({ event, bracketType = 'main', onMatch
         ))}
       </div>
 
-      {/* Match Dialog */}
-      {showDialog && selectedMatch && (
-        <MatchDialog
-          match={selectedMatch}
-          eventType={event.event_type}
-          onClose={() => {
+      <MatchDialog
+        open={showDialog && Boolean(selectedMatch)}
+        match={selectedMatch}
+        eventType={event.event_type}
+        onClose={() => {
+          setShowDialog(false)
+          setSelectedMatch(null)
+        }}
+        onSave={async (updatedMatch) => {
+          try {
+            const updateData = {
+              status: updatedMatch.status
+            }
+
+            if (updatedMatch.winner_id) {
+              updateData.winner_id = updatedMatch.winner_id
+            }
+
+            if (updatedMatch.score) {
+              updateData.score = updatedMatch.score
+            }
+
+            if (updatedMatch.status === 'completed') {
+              updateData.completed_at = new Date().toISOString()
+            }
+
+            const result = await matchesApi.update(updatedMatch.id, updateData)
+
+            if (updatedMatch.status === 'completed') {
+              try {
+                await createNextRoundMatches(event.id, result.round_name)
+              } catch (error) {
+                console.error('Error creating next round matches:', error)
+              }
+
+              const isMainBracket =
+                result.bracket_type === 'main' || !result.bracket_type
+              if (isMainBracket) {
+                try {
+                  await syncConsolationMatches(event.id)
+                } catch (error) {
+                  console.error('Error syncing consolation matches:', error)
+                }
+              }
+            }
+
+            await loadMatches()
+            if (onMatchUpdate) {
+              onMatchUpdate(result)
+            }
             setShowDialog(false)
             setSelectedMatch(null)
-          }}
-          onSave={async (updatedMatch) => {
-            try {
-              console.log('Updating match with data:', updatedMatch)
-              
-              // Prepare the update data - only include fields that should be updated
-              const updateData = {
-                status: updatedMatch.status
-              }
-              
-              // Only add winner_id if it's set
-              if (updatedMatch.winner_id) {
-                updateData.winner_id = updatedMatch.winner_id
-              }
-              
-              // Only add score if it's set
-              if (updatedMatch.score) {
-                updateData.score = updatedMatch.score
-              }
-              
-              // Add completion timestamp if match is completed
-              if (updatedMatch.status === 'completed') {
-                updateData.completed_at = new Date().toISOString()
-              }
-              
-              console.log('Sending update data:', updateData)
-              console.log('Match ID:', updatedMatch.id)
-              const result = await matchesApi.update(updatedMatch.id, updateData)
-              console.log('Update successful:', result)
-              
-              // If match was completed, advance winners and sync first-round losers into consolation
-              if (updatedMatch.status === 'completed') {
-                console.log('Match completed, checking for next round creation...')
-                try {
-                  const nextRoundCreated = await createNextRoundMatches(event.id, result.round_name)
-                  if (nextRoundCreated) {
-                    console.log('Next round matches created successfully')
-                  } else {
-                    console.log('Next round not ready yet or tournament complete')
-                  }
-                } catch (error) {
-                  console.error('Error creating next round matches:', error)
-                }
+          } catch (error) {
+            console.error('Error updating match:', error)
+            setErrorMessage(`Failed to update match: ${error.message || 'Unknown error'}. Please try again.`)
+            throw error
+          }
+        }}
+      />
 
-                // Only first-round main losers feed consolation (mirror pairs 1v2, 3v4, ...)
-                const isMainBracket =
-                  result.bracket_type === 'main' || !result.bracket_type
-                if (isMainBracket) {
-                  try {
-                    await syncConsolationMatches(event.id)
-                  } catch (error) {
-                    console.error('Error syncing consolation matches:', error)
-                  }
-                }
-              }
-              
-              await loadMatches() // Reload matches to get updated data
-              if (onMatchUpdate) {
-                onMatchUpdate(result)
-              }
-              setShowDialog(false)
-              setSelectedMatch(null)
-            } catch (error) {
-              console.error('Error updating match:', error)
-              console.error('Error details:', error.message, error.details)
-              alert(`Failed to update match: ${error.message || 'Unknown error'}. Please try again.`)
-            }
-          }}
-        />
-      )}
+      <Paper variant="outlined" sx={{ mt: 2, p: 2 }}>
+        <Typography variant="subtitle2" gutterBottom>
+          Legend
+        </Typography>
+        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+          <Chip size="small" label="Scheduled" sx={{ bgcolor: (t) => alpha(t.palette.info.main, 0.2) }} />
+          <Chip size="small" label="In Progress" sx={{ bgcolor: (t) => alpha(t.palette.warning.main, 0.25) }} />
+          <Chip size="small" label="Completed" color="success" variant="outlined" />
+          <Chip size="small" label="Walkover/Cancelled" color="error" variant="outlined" />
+          <Chip size="small" label="#1 Top Seeds" sx={{ bgcolor: '#ffd700', color: '#333', fontWeight: 700 }} />
+          <Chip size="small" label="Bracket Connections" variant="outlined" color="primary" />
+        </Stack>
+      </Paper>
 
-      {/* Legend */}
-      <div className="bracket-legend">
-        <strong>Legend:</strong>
-        <div className="legend-items">
-          <div className="legend-item">
-            <div className="legend-indicator legend-scheduled"></div>
-            Scheduled
-          </div>
-          <div className="legend-item">
-            <div className="legend-indicator legend-in-progress"></div>
-            In Progress
-          </div>
-          <div className="legend-item">
-            <div className="legend-indicator legend-completed"></div>
-            Completed
-          </div>
-          <div className="legend-item">
-            <div className="legend-indicator legend-walkover"></div>
-            Walkover/Cancelled
-          </div>
-          <div className="legend-item">
-            <div className="legend-seed">#1</div>
-            Top Seeds
-          </div>
-          <div className="legend-item">
-            <div className="legend-connection"></div>
-            Bracket Connections
-          </div>
-        </div>
-      </div>
-    </div>
+      <Snackbar
+        open={Boolean(errorMessage)}
+        autoHideDuration={6000}
+        onClose={() => setErrorMessage('')}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="error" onClose={() => setErrorMessage('')} variant="filled">
+          {errorMessage}
+        </Alert>
+      </Snackbar>
+    </Box>
   )
 }
 
+
 function RoundColumn({ round, roundIndex, matches, eventType, eventStatus, onMatchUpdate, onMatchClick, allRounds, allMatches }) {
-  // Calculate positions for matches in this round based on tournament bracket logic
   const calculateMatchPositions = () => {
     const positions = []
-    const matchHeight = 140 // Base match card height
-    
-    // Calculate adaptive spacing based on number of matches in first round
+    const matchHeight = 140
+
     const firstRoundMatchCount = allRounds.length > 0 ? allMatches[allRounds[0]]?.length || 0 : matches.length
     const calculateGap = (matchCount) => {
-      // Adaptive gap: more matches = smaller gap, but minimum for readability
-      if (matchCount <= 4) return 80  // Large gap for small tournaments
-      if (matchCount <= 8) return 60  // Medium gap
-      if (matchCount <= 16) return 40 // Smaller gap for larger tournaments
-      return 30 // Minimum gap for very large tournaments
+      if (matchCount <= 4) return 80
+      if (matchCount <= 8) return 60
+      if (matchCount <= 16) return 40
+      return 30
     }
-    
+
     const matchGap = roundIndex === 0 ? calculateGap(firstRoundMatchCount) : calculateGap(firstRoundMatchCount)
-    const baseOffset = 20 // Base padding offset
-    
+    const baseOffset = 20
+
     matches.forEach((match, matchIndex) => {
-      // Use bracket geometry, not creation order (bye winners sync early with higher match_numbers)
       const posIndex =
         match.bracket_position != null ? match.bracket_position : matchIndex
       let topPosition
 
       if (roundIndex === 0) {
-        // First round: evenly spaced with adaptive gap
         topPosition = baseOffset + posIndex * (matchHeight + matchGap)
       } else {
-        // Later rounds: position between corresponding previous round matches
-        // Each match in this round represents the winner of 2^roundIndex previous round matches
         const matchesPerCurrentMatch = Math.pow(2, roundIndex)
         const firstPrevMatchIndex = posIndex * matchesPerCurrentMatch
         const lastPrevMatchIndex = firstPrevMatchIndex + matchesPerCurrentMatch - 1
 
-        // Calculate the center point between the first and last corresponding matches
-        // Use the same gap calculation for consistency
         const firstMatchTop = baseOffset + firstPrevMatchIndex * (matchHeight + matchGap)
         const lastMatchTop = baseOffset + lastPrevMatchIndex * (matchHeight + matchGap)
 
-        // Position this match at the center point between the corresponding previous matches
         topPosition = firstMatchTop + ((lastMatchTop - firstMatchTop) / 2)
       }
 
       positions.push(topPosition)
     })
-    
+
     return positions
   }
-  
+
   const matchPositions = calculateMatchPositions()
-  
-  // Calculate the height needed for this round
+
   const calculateRoundHeight = () => {
     if (matchPositions.length === 0) return 600
     const maxPosition = Math.max(...matchPositions)
-    return Math.max(600, maxPosition + 200) // Add padding for the last match
+    return Math.max(600, maxPosition + 200)
   }
-  
+
   return (
     <div className="round-column">
       <h4 className="round-header">
         {round}
       </h4>
-      
+
       <div className="matches-column" style={{ position: 'relative', minHeight: `${calculateRoundHeight()}px` }}>
         {matches.map((match, matchIndex) => (
           <div
@@ -362,29 +347,32 @@ function MatchCard({ match, matchIndex, roundIndex, eventType, eventStatus, onUp
     return partner ? `${player.name} / ${partner.name}` : player.name
   }
 
+  const theme = useTheme()
+
   const getMatchBackgroundColor = (status, winnerId, playerId) => {
-    if (isByeMatch) return '#e8f5e9'
+    if (isByeMatch) return alpha(theme.palette.success.main, 0.16)
     if (status === 'completed' || status === 'walkover') {
-      return winnerId === playerId ? '#d4edda' : '#f8f9fa'
+      return winnerId === playerId
+        ? alpha(theme.palette.success.main, 0.22)
+        : alpha(theme.palette.action.disabledBackground, 0.5)
     }
     switch (status) {
-      case 'in_progress': return '#fff3cd'
-      case 'scheduled': return '#e3f2fd'
-      case 'walkover':
-      case 'cancelled': return '#f8d7da'
-      default: return 'white'
+      case 'in_progress': return alpha(theme.palette.warning.main, 0.22)
+      case 'scheduled': return alpha(theme.palette.info.main, 0.16)
+      case 'cancelled': return alpha(theme.palette.error.main, 0.16)
+      default: return theme.palette.background.paper
     }
   }
 
   const getStatusBadgeColor = (status) => {
-    if (isByeMatch) return '#28a745'
+    if (isByeMatch) return theme.palette.success.main
     switch (status) {
-      case 'scheduled': return '#17a2b8'
-      case 'in_progress': return '#ffc107'
-      case 'completed': return '#28a745'
-      case 'walkover': return '#fd7e14'
-      case 'cancelled': return '#6c757d'
-      default: return '#6c757d'
+      case 'scheduled': return theme.palette.info.main
+      case 'in_progress': return theme.palette.warning.main
+      case 'completed': return theme.palette.success.main
+      case 'walkover': return theme.palette.warning.dark
+      case 'cancelled': return theme.palette.text.secondary
+      default: return theme.palette.text.secondary
     }
   }
 
@@ -397,9 +385,9 @@ function MatchCard({ match, matchIndex, roundIndex, eventType, eventStatus, onUp
   }
 
   return (
-    <div 
+    <div
       className={`match-card ${canEdit ? 'clickable' : 'completed'}`}
-      data-round={roundIndex} 
+      data-round={roundIndex}
       data-match={matchIndex}
       onClick={canEdit ? onClick : undefined}
       style={{
@@ -407,7 +395,6 @@ function MatchCard({ match, matchIndex, roundIndex, eventType, eventStatus, onUp
         opacity: eventStatus === 'completed' ? 0.8 : 1
       }}
     >
-      {/* Seed badges */}
       {match.player1?.seed_position && (
         <div className={getSeedBadgeClass(match.player1.seed_position)}>
           #{match.player1.seed_position}
@@ -424,12 +411,11 @@ function MatchCard({ match, matchIndex, roundIndex, eventType, eventStatus, onUp
         </div>
       )}
 
-      {/* Match header */}
       <div className="match-header">
         <span className="match-number">
           Match {match.match_number}
           {match.bracket_position !== undefined && (
-            <span style={{ fontSize: '0.7em', color: 'var(--text-secondary)', marginLeft: '8px' }}>
+            <span style={{ fontSize: '0.7em', color: theme.palette.text.secondary, marginLeft: '8px' }}>
               (Pos {match.bracket_position + 1})
             </span>
           )}
@@ -441,15 +427,14 @@ function MatchCard({ match, matchIndex, roundIndex, eventType, eventStatus, onUp
         </span>
       </div>
 
-      {/* Player 1 */}
       <div className={`player-row ${match.status === 'completed' && match.winner_id && match.winner_id !== match.player1_id ? 'loser' : ''}`} style={{
         backgroundColor: getMatchBackgroundColor(match.status, match.winner_id, match.player1_id)
       }}>
         <div className="player-info">
           <div className="player-header-bracket">
             {match.player1 && (
-              <Avatar 
-                src={getUserAvatarByEmail(match.player1?.email)} 
+              <Avatar
+                src={getUserAvatarByEmail(match.player1?.email)}
                 alt={match.player1?.name}
                 size={28}
               />
@@ -458,14 +443,14 @@ function MatchCard({ match, matchIndex, roundIndex, eventType, eventStatus, onUp
               <div className={`player-name ${match.winner_id && match.winner_id === match.player1_id ? 'winner' : ''} ${match.status === 'completed' && match.winner_id && match.winner_id !== match.player1_id ? 'loser' : ''}`}>
                 {getPlayerDisplay(match.player1, match.player1_partner, match.player1_id)}
                 {match.player1?.seed_position && (
-                  <span style={{ marginLeft: '8px', fontSize: '0.8em', color: '#ff6b35', fontWeight: 'bold' }}>
+                  <span style={{ marginLeft: '8px', fontSize: '0.8em', color: theme.palette.warning.dark, fontWeight: 'bold' }}>
                     (#{match.player1.seed_position})
                   </span>
                 )}
                 {match.score && match.winner_id === match.player1_id && (
                   <span
                     className="winner-score"
-                    style={isByeMatch ? { fontStyle: 'italic', color: '#2e7d32' } : undefined}
+                    style={isByeMatch ? { fontStyle: 'italic', color: theme.palette.success.main } : undefined}
                   >
                     {' '}({match.score})
                   </span>
@@ -479,15 +464,14 @@ function MatchCard({ match, matchIndex, roundIndex, eventType, eventStatus, onUp
         )}
       </div>
 
-      {/* Player 2 */}
       <div className={`player-row ${match.status === 'completed' && match.winner_id && match.winner_id !== match.player2_id ? 'loser' : ''}`} style={{
         backgroundColor: getMatchBackgroundColor(match.status, match.winner_id, match.player2_id)
       }}>
         <div className="player-info">
           <div className="player-header-bracket">
             {match.player2 && (
-              <Avatar 
-                src={getUserAvatarByEmail(match.player2?.email)} 
+              <Avatar
+                src={getUserAvatarByEmail(match.player2?.email)}
                 alt={match.player2?.name}
                 size={28}
               />
@@ -496,14 +480,14 @@ function MatchCard({ match, matchIndex, roundIndex, eventType, eventStatus, onUp
               <div className={`player-name ${match.winner_id && match.winner_id === match.player2_id ? 'winner' : ''} ${match.status === 'completed' && match.winner_id && match.winner_id !== match.player2_id ? 'loser' : ''}`}>
                 {getPlayerDisplay(match.player2, match.player2_partner, match.player2_id)}
                 {match.player2?.seed_position && (
-                  <span style={{ marginLeft: '8px', fontSize: '0.8em', color: '#ff6b35', fontWeight: 'bold' }}>
+                  <span style={{ marginLeft: '8px', fontSize: '0.8em', color: theme.palette.warning.dark, fontWeight: 'bold' }}>
                     (#{match.player2.seed_position})
                   </span>
                 )}
                 {match.score && match.winner_id === match.player2_id && (
                   <span
                     className="winner-score"
-                    style={isByeMatch ? { fontStyle: 'italic', color: '#2e7d32' } : undefined}
+                    style={isByeMatch ? { fontStyle: 'italic', color: theme.palette.success.main } : undefined}
                   >
                     {' '}({match.score})
                   </span>
@@ -517,42 +501,45 @@ function MatchCard({ match, matchIndex, roundIndex, eventType, eventStatus, onUp
         )}
       </div>
 
-      {/* Next round indicator */}
       {match.status === 'scheduled' && !isByeMatch && hasBothPlayers && roundIndex < 3 && (
         <div style={{
           position: 'absolute',
           bottom: '-12px',
           right: '10px',
           fontSize: '0.7em',
-          color: '#007bff',
-          backgroundColor: 'white',
+          color: theme.palette.primary.main,
+          backgroundColor: theme.palette.background.paper,
           padding: '2px 6px',
           borderRadius: '4px',
-          border: '1px solid #007bff',
-          opacity: 0.8
+          border: `1px solid ${theme.palette.primary.main}`,
+          opacity: 0.9
         }}>
           Winner → Round {roundIndex + 2}
         </div>
       )}
-
     </div>
   )
 }
 
-// Match Dialog Component for editing match details
-function MatchDialog({ match, eventType, onClose, onSave }) {
-  const [status, setStatus] = useState(match.status || 'scheduled')
-  const [winnerId, setWinnerId] = useState(match.winner_id || '')
+function MatchDialog({ open, match, eventType, onClose, onSave }) {
+  const [status, setStatus] = useState('scheduled')
+  const [winnerId, setWinnerId] = useState('')
   const [player1Score, setPlayer1Score] = useState('')
   const [player2Score, setPlayer2Score] = useState('')
   const [player1TiebreakScore, setPlayer1TiebreakScore] = useState('')
   const [player2TiebreakScore, setPlayer2TiebreakScore] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // Parse existing score if available
   useEffect(() => {
+    if (!open || !match) return
+    setStatus(match.status || 'scheduled')
+    setWinnerId(match.winner_id || '')
+    setPlayer1Score('')
+    setPlayer2Score('')
+    setPlayer1TiebreakScore('')
+    setPlayer2TiebreakScore('')
+
     if (match.score) {
-      // Check if there's a tie-breaker score in format "7-6 (7-5)"
       const tiebreakMatch = match.score.match(/^(\d+)-(\d+)\s*\((\d+)-(\d+)\)$/)
       if (tiebreakMatch) {
         setPlayer1Score(tiebreakMatch[1])
@@ -560,17 +547,16 @@ function MatchDialog({ match, eventType, onClose, onSave }) {
         setPlayer1TiebreakScore(tiebreakMatch[3])
         setPlayer2TiebreakScore(tiebreakMatch[4])
       } else {
-        // Regular score format "6-4"
         const scoreParts = match.score.split('-')
         if (scoreParts.length === 2) {
           setPlayer1Score(scoreParts[0].trim())
           setPlayer2Score(scoreParts[1].trim())
-          setPlayer1TiebreakScore('')
-          setPlayer2TiebreakScore('')
         }
       }
     }
-  }, [match.score])
+  }, [open, match])
+
+  if (!match) return null
 
   const getPlayerDisplay = (player, partner = null) => {
     if (!player) return 'TBD'
@@ -579,7 +565,7 @@ function MatchDialog({ match, eventType, onClose, onSave }) {
 
   const handleSave = async () => {
     setLoading(true)
-    
+
     try {
       console.log('MatchDialog handleSave called with:', {
         status,
@@ -589,12 +575,11 @@ function MatchDialog({ match, eventType, onClose, onSave }) {
         matchId: match.id
       })
 
-      // Format score with tie-breaker if applicable
       let formattedScore = null
       if (status === 'completed' && player1Score && player2Score) {
-        const hasTiebreaker = ((player1Score === '7' && player2Score === '6') || (player1Score === '6' && player2Score === '7')) 
+        const hasTiebreaker = ((player1Score === '7' && player2Score === '6') || (player1Score === '6' && player2Score === '7'))
                              && player1TiebreakScore && player2TiebreakScore
-        
+
         if (hasTiebreaker) {
           formattedScore = `${player1Score}-${player2Score} (${player1TiebreakScore}-${player2TiebreakScore})`
         } else {
@@ -613,7 +598,7 @@ function MatchDialog({ match, eventType, onClose, onSave }) {
       await onSave(updatedMatch)
     } catch (error) {
       console.error('Error in MatchDialog handleSave:', error)
-      alert(`Error saving match: ${error.message || 'Unknown error'}`)
+      // Parent shows Snackbar via rethrown/handled error
     } finally {
       setLoading(false)
     }
@@ -624,26 +609,24 @@ function MatchDialog({ match, eventType, onClose, onSave }) {
       if (!winnerId || !player1Score || !player2Score) {
         return false
       }
-      
-      // Check tie-breaker validation for 7-6 scores
+
       const isTiebreakSet = (player1Score === '7' && player2Score === '6') || (player1Score === '6' && player2Score === '7')
       if (isTiebreakSet) {
         if (!player1TiebreakScore || !player2TiebreakScore) {
           return false
         }
-        
+
         const tb1 = parseInt(player1TiebreakScore)
         const tb2 = parseInt(player2TiebreakScore)
-        
-        // Validate tie-breaker rules: winner must have at least 7 and lead by at least 2
+
         const maxScore = Math.max(tb1, tb2)
         const minScore = Math.min(tb1, tb2)
-        
+
         if (maxScore < 7 || (maxScore - minScore) < 2) {
           return false
         }
       }
-      
+
       return true
     }
     if (status === 'walkover') {
@@ -652,187 +635,214 @@ function MatchDialog({ match, eventType, onClose, onSave }) {
     return true
   }
 
-  const handleOverlayClick = (e) => {
-    if (e.target === e.currentTarget) {
-      onClose()
+  const showTiebreak = (player1Score === '7' && player2Score === '6') || (player1Score === '6' && player2Score === '7')
+
+  const winnerOptionSx = (selected) => ({
+    p: 1.5,
+    border: 2,
+    borderColor: selected ? 'success.main' : 'divider',
+    borderRadius: 1,
+    bgcolor: selected ? 'success.light' : 'background.paper',
+    cursor: 'pointer',
+    textAlign: 'center',
+    transition: 'all 0.2s ease',
+    '&:hover': {
+      borderColor: 'primary.main'
     }
-  }
+  })
 
   return (
-    <div className="match-dialog-overlay" onClick={handleOverlayClick}>
-      <div className="match-dialog">
-        <div className="dialog-header">
-          <h3 className="dialog-title">Edit Match {match.match_number}</h3>
-          <button className="dialog-close" onClick={onClose}>×</button>
-        </div>
+    <Dialog open={open} onClose={loading ? undefined : onClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pr: 1 }}>
+        Edit Match {match.match_number}
+        <IconButton aria-label="close" onClick={onClose} disabled={loading} size="small">
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent dividers>
+        <Stack spacing={2.5}>
+          <FormControl size="small" fullWidth>
+            <InputLabel id="match-status-label">Match Status</InputLabel>
+            <Select
+              labelId="match-status-label"
+              label="Match Status"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+            >
+              <MenuItem value="scheduled">Scheduled</MenuItem>
+              <MenuItem value="in_progress">In Progress</MenuItem>
+              <MenuItem value="completed">Completed</MenuItem>
+              <MenuItem value="walkover">Walkover</MenuItem>
+              <MenuItem value="cancelled">Cancelled</MenuItem>
+            </Select>
+          </FormControl>
 
-        <div className="form-group">
-          <label className="form-label">Match Status</label>
-          <select 
-            className="form-select"
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-          >
-            <option value="scheduled">Scheduled</option>
-            <option value="in_progress">In Progress</option>
-            <option value="completed">Completed</option>
-            <option value="walkover">Walkover</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-        </div>
-
-        {status === 'completed' && (
-          <>
-            <div className="form-group">
-              <label className="form-label">Winner</label>
-              <div className="winner-selection">
-                <div 
-                  className={`winner-option ${winnerId === match.player1_id ? 'selected' : ''}`}
-                  onClick={() => setWinnerId(match.player1_id)}
+          {status === 'completed' && (
+            <>
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>
+                  Winner
+                </Typography>
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                    gap: 1.5
+                  }}
                 >
-                  <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
+                  <Paper
+                    elevation={0}
+                    onClick={() => setWinnerId(match.player1_id)}
+                    sx={winnerOptionSx(winnerId === match.player1_id)}
+                  >
+                    <Typography fontWeight={600} sx={{ mb: 0.5 }}>
+                      {getPlayerDisplay(match.player1, match.player1_partner)}
+                    </Typography>
+                    {match.player1?.seed_position && (
+                      <Typography variant="caption" color="text.secondary">
+                        Seed #{match.player1.seed_position}
+                      </Typography>
+                    )}
+                  </Paper>
+                  <Paper
+                    elevation={0}
+                    onClick={() => setWinnerId(match.player2_id)}
+                    sx={winnerOptionSx(winnerId === match.player2_id)}
+                  >
+                    <Typography fontWeight={600} sx={{ mb: 0.5 }}>
+                      {getPlayerDisplay(match.player2, match.player2_partner)}
+                    </Typography>
+                    {match.player2?.seed_position && (
+                      <Typography variant="caption" color="text.secondary">
+                        Seed #{match.player2.seed_position}
+                      </Typography>
+                    )}
+                  </Paper>
+                </Box>
+              </Box>
+
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>
+                  Score (1 Set)
+                </Typography>
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <TextField
+                    type="number"
+                    size="small"
+                    placeholder="0"
+                    value={player1Score}
+                    onChange={(e) => setPlayer1Score(e.target.value)}
+                    slotProps={{ htmlInput: { min: 0, max: 7 } }}
+                    sx={{ width: 72, '& input': { textAlign: 'center', fontWeight: 700 } }}
+                  />
+                  <Typography fontWeight={700} fontSize="1.2rem">-</Typography>
+                  <TextField
+                    type="number"
+                    size="small"
+                    placeholder="0"
+                    value={player2Score}
+                    onChange={(e) => setPlayer2Score(e.target.value)}
+                    slotProps={{ htmlInput: { min: 0, max: 7 } }}
+                    sx={{ width: 72, '& input': { textAlign: 'center', fontWeight: 700 } }}
+                  />
+                </Stack>
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                  Enter games won by each player/team
+                </Typography>
+
+                {showTiebreak && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Tie-breaker Score
+                    </Typography>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      <TextField
+                        type="number"
+                        size="small"
+                        placeholder="0"
+                        value={player1TiebreakScore}
+                        onChange={(e) => setPlayer1TiebreakScore(e.target.value)}
+                        slotProps={{ htmlInput: { min: 0, max: 20 } }}
+                        sx={{ width: 72, '& input': { textAlign: 'center', fontWeight: 700 } }}
+                      />
+                      <Typography fontWeight={700} fontSize="1.2rem">-</Typography>
+                      <TextField
+                        type="number"
+                        size="small"
+                        placeholder="0"
+                        value={player2TiebreakScore}
+                        onChange={(e) => setPlayer2TiebreakScore(e.target.value)}
+                        slotProps={{ htmlInput: { min: 0, max: 20 } }}
+                        sx={{ width: 72, '& input': { textAlign: 'center', fontWeight: 700 } }}
+                      />
+                    </Stack>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                      Enter tie-breaker points (winner must have at least 7 and lead by 2)
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            </>
+          )}
+
+          {(status === 'walkover' || status === 'cancelled') && (
+            <Box>
+              <Typography variant="subtitle2" gutterBottom>
+                {status === 'walkover' ? 'Winner (Walkover)' : 'Result'}
+              </Typography>
+              {status === 'walkover' ? (
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                    gap: 1.5
+                  }}
+                >
+                  <Paper
+                    elevation={0}
+                    onClick={() => setWinnerId(match.player1_id)}
+                    sx={winnerOptionSx(winnerId === match.player1_id)}
+                  >
                     {getPlayerDisplay(match.player1, match.player1_partner)}
-                  </div>
-                  {match.player1?.seed_position && (
-                    <div style={{ fontSize: '0.8em', color: '#666' }}>
-                      Seed #{match.player1.seed_position}
-                    </div>
-                  )}
-                </div>
-                <div 
-                  className={`winner-option ${winnerId === match.player2_id ? 'selected' : ''}`}
-                  onClick={() => setWinnerId(match.player2_id)}
-                >
-                  <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
+                  </Paper>
+                  <Paper
+                    elevation={0}
+                    onClick={() => setWinnerId(match.player2_id)}
+                    sx={winnerOptionSx(winnerId === match.player2_id)}
+                  >
                     {getPlayerDisplay(match.player2, match.player2_partner)}
-                  </div>
-                  {match.player2?.seed_position && (
-                    <div style={{ fontSize: '0.8em', color: '#666' }}>
-                      Seed #{match.player2.seed_position}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Score (1 Set)</label>
-              <div className="score-input-group">
-                <input
-                  type="number"
-                  className="form-input score-input"
-                  placeholder="0"
-                  min="0"
-                  max="7"
-                  value={player1Score}
-                  onChange={(e) => setPlayer1Score(e.target.value)}
-                />
-                <span style={{ fontWeight: 'bold', fontSize: '1.2em' }}>-</span>
-                <input
-                  type="number"
-                  className="form-input score-input"
-                  placeholder="0"
-                  min="0"
-                  max="7"
-                  value={player2Score}
-                  onChange={(e) => setPlayer2Score(e.target.value)}
-                />
-              </div>
-              <div style={{ fontSize: '0.8em', color: '#666', marginTop: '4px' }}>
-                Enter games won by each player/team
-              </div>
-              
-              {/* Tie-breaker inputs - show when score is 7-6 or 6-7 */}
-              {((player1Score === '7' && player2Score === '6') || (player1Score === '6' && player2Score === '7')) && (
-                <div style={{ marginTop: '15px' }}>
-                  <label className="form-label">Tie-breaker Score</label>
-                  <div className="score-input-group">
-                    <input
-                      type="number"
-                      className="form-input score-input"
-                      placeholder="0"
-                      min="0"
-                      max="20"
-                      value={player1TiebreakScore}
-                      onChange={(e) => setPlayer1TiebreakScore(e.target.value)}
-                    />
-                    <span style={{ fontWeight: 'bold', fontSize: '1.2em' }}>-</span>
-                    <input
-                      type="number"
-                      className="form-input score-input"
-                      placeholder="0"
-                      min="0"
-                      max="20"
-                      value={player2TiebreakScore}
-                      onChange={(e) => setPlayer2TiebreakScore(e.target.value)}
-                    />
-                  </div>
-                  <div style={{ fontSize: '0.8em', color: '#666', marginTop: '4px' }}>
-                    Enter tie-breaker points (winner must have at least 7 and lead by 2)
-                  </div>
-                </div>
+                  </Paper>
+                </Box>
+              ) : (
+                <Alert severity="error">
+                  Match has been cancelled
+                </Alert>
               )}
-            </div>
-          </>
-        )}
-
-        {(status === 'walkover' || status === 'cancelled') && (
-          <div className="form-group">
-            <label className="form-label">
-              {status === 'walkover' ? 'Winner (Walkover)' : 'Result'}
-            </label>
-            {status === 'walkover' ? (
-              <div className="winner-selection">
-                <div 
-                  className={`winner-option ${winnerId === match.player1_id ? 'selected' : ''}`}
-                  onClick={() => setWinnerId(match.player1_id)}
-                >
-                  {getPlayerDisplay(match.player1, match.player1_partner)}
-                </div>
-                <div 
-                  className={`winner-option ${winnerId === match.player2_id ? 'selected' : ''}`}
-                  onClick={() => setWinnerId(match.player2_id)}
-                >
-                  {getPlayerDisplay(match.player2, match.player2_partner)}
-                </div>
-              </div>
-            ) : (
-              <div style={{ 
-                padding: '12px', 
-                backgroundColor: '#f8d7da', 
-                borderRadius: '6px',
-                color: '#721c24',
-                textAlign: 'center'
-              }}>
-                Match has been cancelled
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="dialog-actions">
-          <button className="btn btn-secondary" onClick={onClose}>
-            Cancel
-          </button>
-          <button 
-            className="btn btn-primary" 
-            onClick={handleSave}
-            disabled={loading || !isFormValid()}
-          >
-            {loading ? 'Saving...' : 'Save Changes'}
-          </button>
-        </div>
-      </div>
-    </div>
+            </Box>
+          )}
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, py: 2 }}>
+        <Button onClick={onClose} disabled={loading} color="inherit">
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          onClick={handleSave}
+          disabled={loading || !isFormValid()}
+          startIcon={loading ? <CircularProgress size={16} color="inherit" /> : null}
+        >
+          {loading ? 'Saving...' : 'Save Changes'}
+        </Button>
+      </DialogActions>
+    </Dialog>
   )
 }
 
-// Component to draw connecting lines between matches
 function BracketLines({ matches, rounds }) {
   const [lines, setLines] = useState([])
 
   useEffect(() => {
-    // Calculate connection lines after component mounts
     const timer = setTimeout(() => {
       calculateConnectionLines()
     }, 100)
@@ -843,16 +853,14 @@ function BracketLines({ matches, rounds }) {
   const calculateConnectionLines = () => {
     const newLines = []
     const matchesByRound = groupMatchesByRound(matches)
-    
-    // For each round (except the last), draw lines to the next round
+
     for (let i = 0; i < rounds.length - 1; i++) {
       const currentRound = rounds[i]
       const nextRound = rounds[i + 1]
-      
+
       const currentMatches = matchesByRound[currentRound] || []
       const nextMatches = matchesByRound[nextRound] || []
-      
-      // Draw lines from pairs of current round matches to next round matches
+
       for (let n = 0; n < nextMatches.length; n++) {
         const j =
           nextMatches[n].bracket_position != null
@@ -869,31 +877,28 @@ function BracketLines({ matches, rounds }) {
         )
 
         if (hasFeeder1 && hasFeeder2) {
-          // Get the DOM elements for positioning
           const match1Element = document.querySelector(`[data-round="${i}"][data-match="${match1Index}"]`)
           const match2Element = document.querySelector(`[data-round="${i}"][data-match="${match2Index}"]`)
           const nextMatchElement = document.querySelector(`[data-round="${i + 1}"][data-match="${j}"]`)
 
           if (match1Element && match2Element && nextMatchElement) {
             const containerRect = document.querySelector('.bracket-container').getBoundingClientRect()
-            
+
             const match1Rect = match1Element.getBoundingClientRect()
             const match2Rect = match2Element.getBoundingClientRect()
             const nextMatchRect = nextMatchElement.getBoundingClientRect()
-            
-            // Calculate relative positions
+
             const match1Right = match1Rect.right - containerRect.left
             const match1CenterY = match1Rect.top + match1Rect.height / 2 - containerRect.top
-            
+
             const match2Right = match2Rect.right - containerRect.left
             const match2CenterY = match2Rect.top + match2Rect.height / 2 - containerRect.top
-            
+
             const nextMatchLeft = nextMatchRect.left - containerRect.left
             const nextMatchCenterY = nextMatchRect.top + nextMatchRect.height / 2 - containerRect.top
-            
-            // Horizontal lines from matches to connection point
+
             const connectionX = match1Right + 30
-            
+
             newLines.push({
               id: `h1-${i}-${j}`,
               type: 'horizontal',
@@ -901,7 +906,7 @@ function BracketLines({ matches, rounds }) {
               top: match1CenterY - 1,
               width: 30
             })
-            
+
             newLines.push({
               id: `h2-${i}-${j}`,
               type: 'horizontal',
@@ -909,11 +914,10 @@ function BracketLines({ matches, rounds }) {
               top: match2CenterY - 1,
               width: 30
             })
-            
-            // Vertical line connecting the two horizontal lines
+
             const verticalTop = Math.min(match1CenterY, match2CenterY)
             const verticalHeight = Math.abs(match2CenterY - match1CenterY)
-            
+
             if (verticalHeight > 0) {
               newLines.push({
                 id: `v-${i}-${j}`,
@@ -923,8 +927,7 @@ function BracketLines({ matches, rounds }) {
                 height: verticalHeight
               })
             }
-            
-            // Horizontal line to next match
+
             newLines.push({
               id: `h3-${i}-${j}`,
               type: 'horizontal',
@@ -936,7 +939,7 @@ function BracketLines({ matches, rounds }) {
         }
       }
     }
-    
+
     setLines(newLines)
   }
 
@@ -958,7 +961,6 @@ function BracketLines({ matches, rounds }) {
   )
 }
 
-// Helper functions
 function groupMatchesByRound(matches) {
   const grouped = {}
   matches.forEach(match => {
@@ -968,8 +970,7 @@ function groupMatchesByRound(matches) {
     }
     grouped[round].push(match)
   })
-  
-  // Sort by bracket geometry (not match_number — bye sync can create later slots first)
+
   Object.keys(grouped).forEach((round) => {
     grouped[round].sort((a, b) => {
       const posA = a.bracket_position ?? a.match_number ?? 0
@@ -991,12 +992,11 @@ function getRoundOrder(roundName) {
     'Semi-Final': 5,
     'Final': 6
   }
-  
-  // Handle generic round names like "Round 1", "Round 2", etc.
+
   if (roundName.startsWith('Round ') && !order[roundName]) {
     const roundNum = parseInt(roundName.split(' ')[1])
     return roundNum
   }
-  
+
   return order[roundName] || 999
 }
