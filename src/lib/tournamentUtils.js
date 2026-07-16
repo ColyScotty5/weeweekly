@@ -40,6 +40,50 @@ export const POINTS_SYSTEM = {
   }
 }
 
+/** Human-readable labels for participant result statuses */
+export const RESULT_STATUS_LABELS = {
+  registered: 'Registered',
+  active: 'Active',
+  withdrawn: 'Withdrawn',
+  eliminated: 'Eliminated',
+  winner: 'Winner',
+  runner_up: 'Runner-up',
+  semi_final: 'Semi-Final',
+  quarter_final: 'Quarter-Final',
+  round_16: 'Round of 16',
+  round_32: 'Round of 32',
+  consolation_winner: 'Consolation Winner',
+  consolation_runner_up: 'Consolation Runner-up',
+  consolation_semi_final: 'Consolation Semi-Final',
+  consolation_quarter_final: 'Consolation Quarter-Final',
+  consolation_round_16: 'Consolation Round of 16',
+  consolation_round_32: 'Consolation Round of 32'
+}
+
+/**
+ * Infer result status from points earned.
+ * Main-bracket values win on collisions with consolation (e.g. 14 → quarter_final).
+ */
+export function resultStatusFromPoints(eventType, pointsEarned) {
+  const system = POINTS_SYSTEM[eventType]
+  if (!system || pointsEarned == null) return 'eliminated'
+
+  const byPoints = new Map()
+  for (const [round, pts] of Object.entries(system.consolation || {})) {
+    byPoints.set(pts, `consolation_${round}`)
+  }
+  for (const [round, pts] of Object.entries(system.main || {})) {
+    byPoints.set(pts, round)
+  }
+
+  return byPoints.get(pointsEarned) || 'eliminated'
+}
+
+export function formatResultStatus(status) {
+  if (!status) return ''
+  return RESULT_STATUS_LABELS[status] || status.replace(/_/g, ' ')
+}
+
 // Generate singles draw
 // Top 25% of the field may be seeded, chosen only from ranked players (last-12-month points)
 export function generateSinglesDraw(participants, rankingsByPlayerId = new Map()) {

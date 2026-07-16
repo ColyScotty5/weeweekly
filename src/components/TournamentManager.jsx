@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'preact/hooks'
 import { tournamentsApi, eventsApi, playersApi, participantsApi, matchesApi, rankingsApi } from '../lib/supabase.js'
-import { generateSinglesDraw, generateDoublesDraw, generateMatches, POINTS_SYSTEM, syncNextRoundMatches, syncConsolationMatches } from '../lib/tournamentUtils.js'
+import { generateSinglesDraw, generateDoublesDraw, generateMatches, POINTS_SYSTEM, syncNextRoundMatches, syncConsolationMatches, formatResultStatus } from '../lib/tournamentUtils.js'
 import TournamentBracket from './TournamentBracket.jsx'
 import Avatar from './Avatar.jsx'
 import { getUserAvatarByEmail } from '../contexts/AuthContext.jsx'
@@ -718,7 +718,7 @@ function TournamentDetails({ tournament, players, onUpdate, onEditEvent }) {
 
         await participantsApi.update(participant.id, {
           points_earned: pointsEarned,
-          status: furthestRound === 'winner' ? 'active' : 'eliminated'
+          status: furthestRound
         })
       }
 
@@ -735,44 +735,73 @@ function TournamentDetails({ tournament, players, onUpdate, onEditEvent }) {
     }
   }
 
-  // Helper function to calculate the furthest round a player reached
+  // Helper: furthest main-bracket round reached (used for points + status)
   const calculateFurthestRound = (playerMatches, playerId) => {
-    const roundOrder = {
-      'Round of 32': 1, 'round_32': 1,
-      'Round of 16': 2, 'round_16': 2,
-      'Quarter-Final': 3, 'quarter_final': 3,
-      'Semi-Final': 4, 'semi_final': 4,
-      'Final': 5, 'runner_up': 5,
-      'Winner': 6, 'winner': 6
+    const mainMatches = playerMatches.filter(
+      (match) => match.bracket_type === 'main' || !match.bracket_type
+    )
+
+    const eliminationRound = {
+      'Round of 32': 'round_32',
+      'Round of 16': 'round_16',
+      'Quarter-Final': 'quarter_final',
+      'Semi-Final': 'semi_final',
+      Final: 'runner_up'
     }
 
-    let furthestRound = 'round_32' // Default to first round
-    let maxRoundOrder = 0
+    const advanceFrom = {
+      'Round of 32': 'round_16',
+      'Round of 16': 'quarter_final',
+      'Quarter-Final': 'semi_final',
+      'Semi-Final': 'runner_up',
+      Final: 'winner'
+    }
 
-    for (const match of playerMatches) {
-      const roundName = match.round_name?.toLowerCase().replace(/[^a-z0-9]/g, '_')
-      const roundOrderValue = roundOrder[roundName] || roundOrder[match.round_name] || 1
+    const rank = {
+      round_32: 1,
+      round_16: 2,
+      quarter_final: 3,
+      semi_final: 4,
+      runner_up: 5,
+      winner: 6
+    }
 
-      // If player won this match, they advanced to the next round
-      if (match.winner_id === playerId && roundOrderValue > maxRoundOrder) {
-        maxRoundOrder = roundOrderValue
-        
-        // Determine the achievement based on round
-        if (match.round_name === 'Final') {
-          furthestRound = 'winner'
-        } else if (match.round_name === 'Semi-Final') {
-          furthestRound = 'runner_up' // If they won semi, they reached final (runner_up minimum)
-        } else if (match.round_name === 'Quarter-Final') {
-          furthestRound = 'semi_final'
-        } else if (match.round_name === 'Round of 16') {
-          furthestRound = 'quarter_final'
-        } else if (match.round_name === 'Round of 32') {
-          furthestRound = 'round_16'
+    let furthestRound = null
+    let maxRank = 0
+
+    for (const match of mainMatches) {
+      if (match.status !== 'completed' && match.status !== 'walkover') continue
+      if (match.score === 'Bye' && match.winner_id === playerId) {
+        // Bye advances you; don't set elimination round from the bye itself
+        const advanced = advanceFrom[match.round_name]
+        if (advanced && (rank[advanced] || 0) > maxRank) {
+          maxRank = rank[advanced]
+          furthestRound = advanced
+        }
+        continue
+      }
+
+      if (match.winner_id === playerId) {
+        const advanced = advanceFrom[match.round_name]
+        if (advanced && (rank[advanced] || 0) > maxRank) {
+          maxRank = rank[advanced]
+          furthestRound = advanced
+        }
+      } else if (
+        match.player1_id === playerId ||
+        match.player2_id === playerId ||
+        match.player1_partner_id === playerId ||
+        match.player2_partner_id === playerId
+      ) {
+        const eliminated = eliminationRound[match.round_name]
+        if (eliminated && (rank[eliminated] || 0) > maxRank) {
+          maxRank = rank[eliminated]
+          furthestRound = eliminated
         }
       }
     }
 
-    return furthestRound
+    return furthestRound || 'round_32'
   }
 
   // Load matches when component mounts or tournament changes
@@ -1080,7 +1109,7 @@ function EventDetails({ event, playersById = new Map() }) {
                 </div>
               )}
               <div className="participant-status">
-                Status: {participant.status}
+                Status: {formatResultStatus(participant.status)}
               </div>
             </div>
             )

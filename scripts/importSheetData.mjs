@@ -8,6 +8,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createClient } from '@supabase/supabase-js'
+import { resultStatusFromPoints } from '../src/lib/tournamentUtils.js'
 
 function loadEnv(path = '.env') {
   const text = readFileSync(resolve(path), 'utf8')
@@ -116,20 +117,22 @@ async function ensureEvent(tournamentId, eventType) {
   return data
 }
 
-async function upsertParticipant(eventId, playerId, pointsEarned) {
+async function upsertParticipant(eventId, playerId, pointsEarned, eventType) {
+  const status = resultStatusFromPoints(eventType, pointsEarned)
+
   const { data: existing, error } = await supabase
     .from('event_participants')
-    .select('id, points_earned')
+    .select('id, points_earned, status')
     .eq('event_id', eventId)
     .eq('player_id', playerId)
     .maybeSingle()
   if (error) throw error
 
   if (existing) {
-    if (existing.points_earned !== pointsEarned) {
+    if (existing.points_earned !== pointsEarned || existing.status !== status) {
       const { error: updateError } = await supabase
         .from('event_participants')
-        .update({ points_earned: pointsEarned, status: 'eliminated' })
+        .update({ points_earned: pointsEarned, status })
         .eq('id', existing.id)
       if (updateError) throw updateError
       return 'updated'
@@ -141,7 +144,7 @@ async function upsertParticipant(eventId, playerId, pointsEarned) {
     event_id: eventId,
     player_id: playerId,
     points_earned: pointsEarned,
-    status: 'eliminated',
+    status,
   })
   if (insertError) throw insertError
   return 'created'
@@ -180,7 +183,7 @@ async function main() {
     }
     const event = eventCache.get(eventKey)
 
-    const result = await upsertParticipant(event.id, player.id, row.points_earned)
+    const result = await upsertParticipant(event.id, player.id, row.points_earned, row.event_type)
     counts[result]++
   }
 
