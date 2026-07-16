@@ -145,34 +145,45 @@ export function generateSinglesDraw(participants, rankingsByPlayerId = new Map()
 }
 
 // Generate doubles draw with partner assignments
-// Half the field may be seeded from ranked players; remaining players randomly partnered with seeds
+// Up to half the field may be seeded (players with rank points > 0 only).
+// Each seed gets a random partner; leftover players are randomly paired into unseeded teams.
+// Seeded teams use ATP/ITF bracket placement (same geometry as singles).
 export function generateDoublesDraw(participants, rankingsByPlayerId = new Map()) {
   const totalPlayers = participants.length
 
+  if (totalPlayers % 2 !== 0) {
+    throw new Error(
+      'Fail! There seems to be an odd number of registrants, does someone think they can win this on their own! 😂 Please double check the list of registrants and try again.'
+    )
+  }
+
   const enriched = participants.map((participant) => {
     const ranking = rankingsByPlayerId.get(participant.player_id)
+    const rankPoints = ranking?.rankPoints || 0
     return {
       ...participant,
-      _rankPoints: ranking?.rankPoints || 0,
-      _isRanked: Boolean(ranking?.isRanked)
+      _rankPoints: rankPoints,
+      // Only players with rank points > 0 are eligible to be seeded
+      _isSeedable: rankPoints > 0
     }
   })
 
-  const ranked = enriched
-    .filter((participant) => participant._isRanked)
+  const seedable = enriched
+    .filter((participant) => participant._isSeedable)
     .sort((a, b) => b._rankPoints - a._rankPoints)
-  const unranked = enriched.filter((participant) => !participant._isRanked)
+  const notSeedable = enriched.filter((participant) => !participant._isSeedable)
 
+  // Cap at half the field; if fewer seedable players exist, seed only those
   const maxSeeds = Math.floor(totalPlayers / 2)
-  const seededPlayers = ranked.slice(0, maxSeeds).map((participant, index) => ({
+  const seededPlayers = seedable.slice(0, maxSeeds).map((participant, index) => ({
     ...participant,
     seed_position: index + 1
   }))
   const seededIds = new Set(seededPlayers.map((participant) => participant.player_id))
 
   const poolForPartners = [
-    ...ranked.filter((participant) => !seededIds.has(participant.player_id)),
-    ...unranked
+    ...seedable.filter((participant) => !seededIds.has(participant.player_id)),
+    ...notSeedable
   ].map((participant) => ({
     ...participant,
     seed_position: null
@@ -180,21 +191,28 @@ export function generateDoublesDraw(participants, rankingsByPlayerId = new Map()
 
   const shuffledUnseeded = [...poolForPartners].sort(() => Math.random() - 0.5)
 
-  // Create teams by pairing seeded players with unseeded players
+  // Every seeded player gets a randomly assigned partner
   const seededTeams = []
   for (let i = 0; i < seededPlayers.length; i++) {
-    if (seededPlayers[i] && shuffledUnseeded[i]) {
-      seededTeams.push({
-        player1: seededPlayers[i],
-        player2: shuffledUnseeded[i],
-        seed_position: seededPlayers[i].seed_position
-      })
+    const partner = shuffledUnseeded[i]
+    if (!partner) {
+      throw new Error('Unable to pair all seeded players with partners')
     }
+    seededTeams.push({
+      player1: seededPlayers[i],
+      player2: partner,
+      seed_position: seededPlayers[i].seed_position
+    })
   }
 
+  // Remaining registrants randomly paired into unseeded teams
   const remainingUnseeded = shuffledUnseeded.slice(seededPlayers.length)
+  if (remainingUnseeded.length % 2 !== 0) {
+    throw new Error('Unable to pair all registrants into doubles teams')
+  }
+
   const unseededTeams = []
-  for (let i = 0; i < remainingUnseeded.length - 1; i += 2) {
+  for (let i = 0; i < remainingUnseeded.length; i += 2) {
     unseededTeams.push({
       player1: remainingUnseeded[i],
       player2: remainingUnseeded[i + 1],

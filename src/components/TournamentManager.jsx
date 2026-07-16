@@ -628,6 +628,13 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
         return
       }
 
+      if (eventType === 'doubles' && participants.length % 2 !== 0) {
+        setMessage(
+          'Fail! There seems to be an odd number of registrants, does someone think they can win this on their own! 😂 Please double check the list of registrants and try again.'
+        )
+        return
+      }
+
       const rankingsByPlayerId = await rankingsApi.getMap(eventType)
 
       let draw, matches
