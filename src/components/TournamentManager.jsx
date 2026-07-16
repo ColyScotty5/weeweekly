@@ -344,6 +344,7 @@ export default function TournamentManager() {
                   loadTournamentDetails(selectedTournament.id)
                 }
               }}
+              onPlayersChange={loadPlayers}
               onEditEvent={handleEditEvent}
             />
           ) : (
@@ -573,7 +574,7 @@ function CreateTournamentModal({ onSubmit, onCancel, loading }) {
   )
 }
 
-function TournamentDetails({ tournament, players, onUpdate, onEditEvent }) {
+function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onEditEvent }) {
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [registrationMode, setRegistrationMode] = useState(false)
   const [bracketView, setBracketView] = useState(null)
@@ -1045,6 +1046,7 @@ function TournamentDetails({ tournament, players, onUpdate, onEditEvent }) {
               players={players}
               onClose={() => setRegistrationMode(false)}
               onUpdate={onUpdate}
+              onPlayersChange={onPlayersChange}
             />
           )}
         </div>
@@ -1122,11 +1124,18 @@ function EventDetails({ event, playersById = new Map() }) {
   )
 }
 
-function RegistrationManager({ event, players, onClose, onUpdate }) {
+function RegistrationManager({ event, players, onClose, onUpdate, onPlayersChange }) {
   const [selectedPlayers, setSelectedPlayers] = useState([])
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [rankedPlayers, setRankedPlayers] = useState(players)
+  const [showAddPlayerModal, setShowAddPlayerModal] = useState(false)
+
+  const refreshPlayers = async () => {
+    const data = await playersApi.getAllWithRankings(event.event_type)
+    setRankedPlayers(data)
+    return data
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -1153,6 +1162,15 @@ function RegistrationManager({ event, players, onClose, onUpdate }) {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handlePlayerCreated = async (createdPlayer) => {
+    await refreshPlayers()
+    if (onPlayersChange) await onPlayersChange()
+    setSelectedPlayers((prev) =>
+      prev.includes(createdPlayer.id) ? prev : [...prev, createdPlayer.id]
+    )
+    setMessage(`✅ Added ${createdPlayer.name} and selected for registration`)
   }
 
   const registeredPlayerIds = event.event_participants?.map(p => p.player_id) || []
@@ -1196,7 +1214,31 @@ function RegistrationManager({ event, players, onClose, onUpdate }) {
       )}
 
       <div style={{ marginBottom: '15px' }}>
-        <h6 style={{ color: 'var(--text-primary)' }}>Available Players:</h6>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '8px',
+          gap: '10px',
+          flexWrap: 'wrap'
+        }}>
+          <h6 style={{ color: 'var(--text-primary)', margin: 0 }}>Available Players:</h6>
+          <button
+            type="button"
+            onClick={() => setShowAddPlayerModal(true)}
+            style={{
+              padding: '6px 12px',
+              backgroundColor: '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '0.85em'
+            }}
+          >
+            + Add new player
+          </button>
+        </div>
         <div style={{ 
           maxHeight: '200px', 
           overflowY: 'auto', 
@@ -1205,28 +1247,34 @@ function RegistrationManager({ event, players, onClose, onUpdate }) {
           padding: '10px',
           backgroundColor: 'var(--bg-primary)'
         }}>
-          {availablePlayers.map(player => (
-            <label key={player.id} style={{ 
-              display: 'block', 
-              marginBottom: '5px',
-              color: 'var(--text-primary)',
-              cursor: 'pointer'
-            }}>
-              <input
-                type="checkbox"
-                checked={selectedPlayers.includes(player.id)}
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    setSelectedPlayers([...selectedPlayers, player.id])
-                  } else {
-                    setSelectedPlayers(selectedPlayers.filter(id => id !== player.id))
-                  }
-                }}
-                style={{ marginRight: '8px' }}
-              />
-              {player.name} (Rank pts: {(player.rankPoints ?? 0).toFixed(2)})
-            </label>
-          ))}
+          {availablePlayers.length === 0 ? (
+            <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9em' }}>
+              No available players. Add a new player to get started.
+            </p>
+          ) : (
+            availablePlayers.map(player => (
+              <label key={player.id} style={{ 
+                display: 'block', 
+                marginBottom: '5px',
+                color: 'var(--text-primary)',
+                cursor: 'pointer'
+              }}>
+                <input
+                  type="checkbox"
+                  checked={selectedPlayers.includes(player.id)}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelectedPlayers([...selectedPlayers, player.id])
+                    } else {
+                      setSelectedPlayers(selectedPlayers.filter(id => id !== player.id))
+                    }
+                  }}
+                  style={{ marginRight: '8px' }}
+                />
+                {player.name} (Rank pts: {(player.rankPoints ?? 0).toFixed(2)})
+              </label>
+            ))
+          )}
         </div>
       </div>
 
@@ -1249,6 +1297,166 @@ function RegistrationManager({ event, players, onClose, onUpdate }) {
         {loading && <LoadingSpinner size={14} color="white" />}
         {loading ? 'Registering...' : `Register ${selectedPlayers.length} Player(s)`}
       </button>
+
+      {showAddPlayerModal && (
+        <AddPlayerModal
+          onClose={() => setShowAddPlayerModal(false)}
+          onCreated={handlePlayerCreated}
+        />
+      )}
+    </div>
+  )
+}
+
+function AddPlayerModal({ onClose, onCreated }) {
+  const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget && !loading) {
+      onClose()
+    }
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    const name = fullName.trim()
+    const trimmedEmail = email.trim()
+
+    if (!name) {
+      setError('Full name is required')
+      return
+    }
+
+    if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError('Enter a valid email address')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+    try {
+      const created = await playersApi.create({
+        name,
+        email: trimmedEmail || null
+      })
+      await onCreated(created)
+      setFullName('')
+      setEmail('')
+    } catch (err) {
+      console.error('Error creating player:', err)
+      const msg = String(err?.message || '')
+      if (msg.toLowerCase().includes('duplicate') || msg.includes('unique') || err?.code === '23505') {
+        setError('A player with that email already exists')
+      } else {
+        setError(err.message || 'Failed to create player')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="delete-modal-overlay" onClick={handleOverlayClick}>
+      <div className="delete-modal" style={{ maxWidth: '420px' }}>
+        <div className="delete-modal-header">
+          <h3 className="delete-modal-title">Add new player</h3>
+          <button
+            type="button"
+            className="delete-modal-close"
+            onClick={onClose}
+            disabled={loading}
+          >
+            ×
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="delete-modal-content" style={{ textAlign: 'left' }}>
+            <p style={{ marginTop: 0, marginBottom: '16px', color: 'var(--text-secondary)', fontSize: '0.9em' }}>
+              Creates a player in the database. They will be selected for this event automatically.
+            </p>
+
+            {error && (
+              <div style={{
+                padding: '8px',
+                marginBottom: '12px',
+                backgroundColor: 'var(--danger)',
+                color: 'white',
+                borderRadius: '4px',
+                fontSize: '0.9em'
+              }}>
+                {error}
+              </div>
+            )}
+
+            <label style={{ display: 'block', marginBottom: '12px' }}>
+              <span style={{ display: 'block', marginBottom: '4px', fontWeight: 600 }}>
+                Full Name <span style={{ color: '#c0392b' }}>*</span>
+              </span>
+              <input
+                type="text"
+                className="form-input"
+                value={fullName}
+                onInput={(e) => setFullName(e.target.value)}
+                placeholder="Jane Doe"
+                disabled={loading}
+                autoFocus
+                required
+                style={{ width: '100%' }}
+              />
+            </label>
+
+            <label style={{ display: 'block', marginBottom: '4px' }}>
+              <span style={{ display: 'block', marginBottom: '4px', fontWeight: 600 }}>
+                Email <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>(optional)</span>
+              </span>
+              <input
+                type="email"
+                className="form-input"
+                value={email}
+                onInput={(e) => setEmail(e.target.value)}
+                placeholder="REMOVED_EMAIL"
+                disabled={loading}
+                style={{ width: '100%' }}
+              />
+            </label>
+          </div>
+
+          <div className="delete-modal-actions">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={onClose}
+              disabled={loading}
+            >
+              Done
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={loading || !fullName.trim()}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                backgroundColor: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                padding: '8px 16px',
+                cursor: loading || !fullName.trim() ? 'not-allowed' : 'pointer',
+                opacity: loading || !fullName.trim() ? 0.6 : 1
+              }}
+            >
+              {loading && <LoadingSpinner size={16} color="white" />}
+              {loading ? 'Adding...' : 'Add player'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }
