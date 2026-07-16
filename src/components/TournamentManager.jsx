@@ -639,7 +639,11 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
         return
       }
 
-      const rankingsByPlayerId = await rankingsApi.getMap(eventType)
+      // Use the same ranking dataset/order as registration + leaderboard UI
+      const rankedPlayersList = await playersApi.getAllWithRankings(eventType)
+      const rankingsByPlayerId = new Map(
+        rankedPlayersList.map((player) => [String(player.id), player])
+      )
 
       let draw, matches
       if (eventType === 'singles') {
@@ -650,24 +654,35 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
         matches = generateMatches(eventId, draw, 'doubles')
       }
 
+      if ((draw.seededCount || 0) === 0) {
+        setMessage(
+          '⚠️ Draw created, but no seeds were assigned. Nobody in this event has completed-event ranking points on the leaderboard yet.'
+        )
+      }
+
       const seedUpdates = new Map()
+      // Always clear every participant's seed first so regenerating a draw
+      // cannot leave stale seed numbers behind.
+      for (const participant of participants) {
+        seedUpdates.set(participant.id, null)
+      }
+
       if (eventType === 'singles') {
-        for (const slot of draw.bracket || []) {
-          if (slot?.id) {
-            seedUpdates.set(slot.id, slot.seed_position || null)
+        for (const seeded of draw.seededPlayers || []) {
+          if (seeded?.id) {
+            seedUpdates.set(seeded.id, seeded.seed_position)
           }
         }
       } else {
-        for (const slot of draw.bracket || []) {
-          if (!slot) continue
-          if (slot.player1?.id) {
-            seedUpdates.set(slot.player1.id, slot.seed_position || null)
-          }
-          if (slot.player2?.id) {
-            seedUpdates.set(slot.player2.id, null)
+        for (const seeded of draw.seededPlayers || []) {
+          // Doubles: seed lives on the seeded player participant row
+          if (seeded?.id) {
+            seedUpdates.set(seeded.id, seeded.seed_position)
           }
         }
+        // Partners / unseeded already cleared above
       }
+
       for (const [participantId, seedPosition] of seedUpdates.entries()) {
         await participantsApi.update(participantId, { seed_position: seedPosition })
       }
@@ -687,7 +702,12 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
         draw_structure: draw
       })
 
-      setMessage(`✅ Draw generated successfully! (${draw.seededCount || 0} seeded, ${draw.numberOfByes || 0} byes)`)
+      const byeNote = draw.numberOfByes > (draw.seededCount || 0)
+        ? ` (${draw.numberOfByes - (draw.seededCount || 0)} bye(s) to unseeded players)`
+        : ''
+      setMessage(
+        `✅ Draw generated successfully! ${draw.seededCount || 0} seed(s), ${draw.numberOfByes || 0} bye(s)${byeNote}`
+      )
       setRegistrationMode(false)
       setSelectedEvent((current) => (current === eventId ? null : current))
       await loadEventMatches(eventId)

@@ -1,5 +1,22 @@
 // Tournament utility functions for draw generation and points calculation
 
+/** Same ordering as the leaderboard UI (best first). */
+export function compareLeaderboardEntries(a, b) {
+  const rankA = a.rank == null ? Number.POSITIVE_INFINITY : a.rank
+  const rankB = b.rank == null ? Number.POSITIVE_INFINITY : b.rank
+  if (rankA !== rankB) return rankA - rankB
+
+  const pointsA = Number(a.rankPoints) || 0
+  const pointsB = Number(b.rankPoints) || 0
+  if (pointsA !== pointsB) return pointsB - pointsA
+
+  const totalA = Number(a.totalPoints) || 0
+  const totalB = Number(b.totalPoints) || 0
+  if (totalA !== totalB) return totalB - totalA
+
+  return String(a.name || '').localeCompare(String(b.name || ''))
+}
+
 // Points system configuration
 export const POINTS_SYSTEM = {
   singles: {
@@ -85,7 +102,8 @@ export function formatResultStatus(status) {
 }
 
 // Generate singles draw
-// Top 25% of the field may be seeded, chosen only from ranked players (last-12-month points)
+// Top ~25% of the field may be seeded (ceil), chosen only from ranked players.
+// Seed order matches the leaderboard among registered players.
 export function generateSinglesDraw(participants, rankingsByPlayerId = new Map()) {
   const totalPlayers = participants.length
 
@@ -94,41 +112,65 @@ export function generateSinglesDraw(participants, rankingsByPlayerId = new Map()
   const numberOfByes = drawSize - totalPlayers
 
   const enriched = participants.map((participant) => {
-    const ranking = rankingsByPlayerId.get(participant.player_id)
+    const playerId = String(participant.player_id || participant.player?.id || '')
+    const ranking =
+      rankingsByPlayerId.get(playerId) ||
+      rankingsByPlayerId.get(participant.player_id) ||
+      rankingsByPlayerId.get(participant.player?.id)
+
     return {
       ...participant,
-      _rankPoints: ranking?.rankPoints || 0,
-      _isRanked: Boolean(ranking?.isRanked)
+      player_id: participant.player_id || participant.player?.id,
+      name: participant.player?.name || ranking?.name || '',
+      rank: ranking?.rank ?? null,
+      rankPoints: Number(ranking?.rankPoints) || 0,
+      totalPoints: Number(ranking?.totalPoints) || 0,
+      _rankPoints: Number(ranking?.rankPoints) || 0,
+      _totalPoints: Number(ranking?.totalPoints) || 0,
+      _rank: ranking?.rank ?? null,
+      // On the rolling leaderboard (completed events in window)
+      _isRanked: Boolean(ranking?.isRanked) || (Number(ranking?.eventsPlayed) || 0) > 0
     }
   })
 
+  // Eligible seeds: registered players who appear on the leaderboard, best first
   const ranked = enriched
     .filter((participant) => participant._isRanked)
-    .sort((a, b) => b._rankPoints - a._rankPoints)
+    .sort(compareLeaderboardEntries)
   const unranked = enriched.filter((participant) => !participant._isRanked)
 
-  const maxSeeds = Math.floor(totalPlayers / 4)
+  // Strict quarter-field seeding (11 players → 3 seeds). Never use bye count for this.
+  const maxSeeds = Math.min(
+    Math.ceil(totalPlayers / 4),
+    ranked.length,
+    Math.floor(drawSize / 2)
+  )
   const seededPlayers = ranked.slice(0, maxSeeds).map((participant, index) => ({
     ...participant,
     seed_position: index + 1
   }))
-  const seededIds = new Set(seededPlayers.map((participant) => participant.player_id))
+  const seededIds = new Set(seededPlayers.map((participant) => String(participant.player_id)))
 
-  const unseededPlayers = [
-    ...ranked.filter((participant) => !seededIds.has(participant.player_id)),
-    ...unranked
-  ].map((participant) => ({
+  // Remaining ranked players stay in leaderboard order (for fair extra byes)
+  const remainingRanked = ranked
+    .filter((participant) => !seededIds.has(String(participant.player_id)))
+    .map((participant) => ({
+      ...participant,
+      seed_position: null
+    }))
+  const remainingUnranked = unranked.map((participant) => ({
     ...participant,
     seed_position: null
   }))
+  const shuffledUnranked = [...remainingUnranked].sort(() => Math.random() - 0.5)
+  const unseededPlayers = [...remainingRanked, ...shuffledUnranked]
 
-  const shuffledUnseeded = [...unseededPlayers].sort(() => Math.random() - 0.5)
   const seedPositions = getStandardSeedPositions(drawSize)
   const bracket = placeEntriesWithSeedsAndByes({
     drawSize,
     numberOfByes,
     seededEntries: seededPlayers,
-    unseededEntries: shuffledUnseeded,
+    unseededEntries: unseededPlayers,
     seedPositions
   })
 
@@ -140,7 +182,7 @@ export function generateSinglesDraw(participants, rankingsByPlayerId = new Map()
     numberOfByes,
     firstRoundMatches: Math.floor((totalPlayers + 1) / 2),
     seededPlayers,
-    unseededPlayers: shuffledUnseeded
+    unseededPlayers
   }
 }
 
@@ -159,19 +201,30 @@ export function generateDoublesDraw(participants, rankingsByPlayerId = new Map()
   }
 
   const enriched = participants.map((participant) => {
-    const ranking = rankingsByPlayerId.get(participant.player_id)
-    const rankPoints = ranking?.rankPoints || 0
+    const playerId = String(participant.player_id || participant.player?.id || '')
+    const ranking =
+      rankingsByPlayerId.get(playerId) ||
+      rankingsByPlayerId.get(participant.player_id) ||
+      rankingsByPlayerId.get(participant.player?.id)
+    const rankPoints = Number(ranking?.rankPoints) || 0
     return {
       ...participant,
+      player_id: participant.player_id || participant.player?.id,
+      name: participant.player?.name || ranking?.name || '',
+      rank: ranking?.rank ?? null,
+      rankPoints,
+      totalPoints: Number(ranking?.totalPoints) || 0,
       _rankPoints: rankPoints,
-      // Only players with rank points > 0 are eligible to be seeded
+      _totalPoints: Number(ranking?.totalPoints) || 0,
+      _rank: ranking?.rank ?? null,
+      // Doubles: only players with rank points > 0 can be seeded
       _isSeedable: rankPoints > 0
     }
   })
 
   const seedable = enriched
     .filter((participant) => participant._isSeedable)
-    .sort((a, b) => b._rankPoints - a._rankPoints)
+    .sort(compareLeaderboardEntries)
   const notSeedable = enriched.filter((participant) => !participant._isSeedable)
 
   // Cap at half the field; if fewer seedable players exist, seed only those
@@ -288,6 +341,9 @@ export function getStandardSeedPositions(drawSize) {
 /**
  * Place seeded entries at ITF slots, reserve R1 opponent slots as byes for seeds
  * #1, #2, ... then fill remaining holes with unseeded entries.
+ *
+ * Extra byes (when byes > seeds) go to the next-highest-ranked unseeded players
+ * (still without seed numbers). Never create a BYE-vs-BYE hole.
  */
 function placeEntriesWithSeedsAndByes({
   drawSize,
@@ -304,27 +360,51 @@ function placeEntriesWithSeedsAndByes({
     bracket[position] = seededEntries[i]
   }
 
-  // Bye = empty R1 opponent slot for seed #1, then #2, etc.
   const reservedByeSlots = new Set()
   const byesToAssign = Math.max(0, numberOfByes)
-  for (let seedNum = 1; seedNum <= byesToAssign && seedNum <= seededEntries.length; seedNum++) {
+  const unseededQueue = [...unseededEntries]
+
+  // 1) Official seeds get byes first (empty R1 opponent slot)
+  for (let seedNum = 1; seedNum <= seededEntries.length && reservedByeSlots.size < byesToAssign; seedNum++) {
     const seedPos = seedPositions[seedNum - 1]
     if (seedPos === undefined) continue
     const opponentPos = seedPos ^ 1
-    if (bracket[opponentPos] === null) {
+    if (opponentPos >= 0 && opponentPos < drawSize && bracket[opponentPos] === null) {
       reservedByeSlots.add(opponentPos)
     }
   }
 
-  // If we still need more bye slots (e.g. fewer seeds than byes), take leftover empties
+  // 2) Extra byes: next unseeded players become bye recipients (no seed_position)
   if (reservedByeSlots.size < byesToAssign) {
-    for (let pos = 0; pos < drawSize && reservedByeSlots.size < byesToAssign; pos++) {
-      if (bracket[pos] === null && !reservedByeSlots.has(pos)) {
-        reservedByeSlots.add(pos)
+    for (let pairStart = 0; pairStart < drawSize && reservedByeSlots.size < byesToAssign; pairStart += 2) {
+      const a = pairStart
+      const b = pairStart + 1
+      const aFree = bracket[a] === null && !reservedByeSlots.has(a)
+      const bFree = bracket[b] === null && !reservedByeSlots.has(b)
+      if (!aFree || !bFree || unseededQueue.length === 0) continue
+
+      const byePos = pairStart < drawSize / 2 ? a : b
+      const playerPos = byePos === a ? b : a
+      bracket[playerPos] = unseededQueue.shift()
+      reservedByeSlots.add(byePos)
+    }
+  }
+
+  // 3) Safety: remaining empty pairs → one bye + one player
+  if (reservedByeSlots.size < byesToAssign) {
+    for (let pairStart = 0; pairStart < drawSize && reservedByeSlots.size < byesToAssign; pairStart += 2) {
+      const a = pairStart
+      const b = pairStart + 1
+      const aFree = bracket[a] === null && !reservedByeSlots.has(a)
+      const bFree = bracket[b] === null && !reservedByeSlots.has(b)
+      if (aFree && bFree && unseededQueue.length > 0) {
+        bracket[b] = unseededQueue.shift()
+        reservedByeSlots.add(a)
       }
     }
   }
 
+  // 4) Fill every remaining non-bye hole with leftover unseeded players
   const fillSlots = []
   for (let pos = 0; pos < drawSize; pos++) {
     if (bracket[pos] === null && !reservedByeSlots.has(pos)) {
@@ -332,8 +412,8 @@ function placeEntriesWithSeedsAndByes({
     }
   }
 
-  for (let i = 0; i < unseededEntries.length && i < fillSlots.length; i++) {
-    bracket[fillSlots[i]] = unseededEntries[i]
+  for (let i = 0; i < fillSlots.length && unseededQueue.length > 0; i++) {
+    bracket[fillSlots[i]] = unseededQueue.shift()
   }
 
   return bracket

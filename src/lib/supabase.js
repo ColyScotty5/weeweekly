@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { compareLeaderboardEntries } from './tournamentUtils.js'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co'
 // Prefer newer publishable key name; fall back to legacy anon key env var
@@ -22,6 +23,8 @@ export function computeRankMetrics(totalPoints, eventsPlayed) {
   const rankPoints = cd > 0 ? totalPoints / cd : 0
   return { cd, rankPoints }
 }
+
+export { compareLeaderboardEntries }
 
 function cutoffDateISO(withinMonths = 12) {
   const cutoff = new Date()
@@ -67,7 +70,7 @@ export const rankingsApi = {
         totalPoints: 0,
         eventsPlayed: 0
       }
-      current.totalPoints += row.points_earned || 0
+      current.totalPoints += Number(row.points_earned) || 0
       current.eventsPlayed += 1
       aggregated.set(player.id, current)
     }
@@ -102,7 +105,7 @@ export const rankingsApi = {
 
   async getMap(eventType = 'singles', withinMonths = 12) {
     const list = await this.getRollingLeaderboard(eventType, withinMonths)
-    return new Map(list.map((player) => [player.id, player]))
+    return new Map(list.map((player) => [String(player.id), player]))
   }
 }
 
@@ -125,11 +128,11 @@ export const playersApi = {
       this.getAll(),
       rankingsApi.getRollingLeaderboard(eventType)
     ])
-    const byId = new Map(leaderboard.map((entry) => [entry.id, entry]))
+    const byId = new Map(leaderboard.map((entry) => [String(entry.id), entry]))
 
     return players
       .map((player) => {
-        const ranked = byId.get(player.id)
+        const ranked = byId.get(String(player.id))
         return {
           ...player,
           totalPoints: ranked?.totalPoints || 0,
@@ -140,12 +143,7 @@ export const playersApi = {
           isRanked: ranked?.isRanked || false
         }
       })
-      .sort(
-        (a, b) =>
-          b.rankPoints - a.rankPoints ||
-          b.totalPoints - a.totalPoints ||
-          a.name.localeCompare(b.name)
-      )
+      .sort(compareLeaderboardEntries)
   },
 
   // Get player by ID

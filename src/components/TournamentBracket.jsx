@@ -42,6 +42,22 @@ export default function TournamentBracket({ event, bracketType = 'main', onMatch
     setLoading(true)
     try {
       const data = await matchesApi.getByEvent(event.id)
+      const participants = event.event_participants || []
+      const seedByPlayerId = new Map(
+        participants
+          .filter((p) => Number(p.seed_position) > 0)
+          .map((p) => [p.player_id, Number(p.seed_position)])
+      )
+      const withSeeds = (matchList) =>
+        matchList.map((match) => ({
+          ...match,
+          player1: match.player1
+            ? { ...match.player1, seed_position: seedByPlayerId.get(match.player1_id) ?? null }
+            : match.player1,
+          player2: match.player2
+            ? { ...match.player2, seed_position: seedByPlayerId.get(match.player2_id) ?? null }
+            : match.player2
+        }))
 
       if (bracketType === 'consolation') {
         try {
@@ -54,7 +70,7 @@ export default function TournamentBracket({ event, bracketType = 'main', onMatch
         const consolationMatches = refreshed.filter(
           (match) => match.bracket_type === 'consolation'
         )
-        setMatches(consolationMatches)
+        setMatches(withSeeds(consolationMatches))
       } else {
         const mainMatches = data.filter(match => match.bracket_type === 'main' || !match.bracket_type)
         const firstRound = mainMatches
@@ -73,13 +89,13 @@ export default function TournamentBracket({ event, bracketType = 'main', onMatch
               await syncNextRoundMatches(event.id, round)
             }
             const again = await matchesApi.getByEvent(event.id)
-            setMatches(again.filter((match) => match.bracket_type === 'main' || !match.bracket_type))
+            setMatches(withSeeds(again.filter((match) => match.bracket_type === 'main' || !match.bracket_type)))
             return
           } catch (error) {
             console.error('Error syncing next round matches:', error)
           }
         }
-        setMatches(mainMatches)
+        setMatches(withSeeds(mainMatches))
       }
     } catch (error) {
       console.error('Error loading matches:', error)
@@ -377,12 +393,14 @@ function MatchCard({ match, matchIndex, roundIndex, eventType, eventStatus, onUp
   }
 
   const getSeedBadgeClass = (seedPosition) => {
-    if (!seedPosition) return 'seed-badge'
     if (seedPosition === 1) return 'seed-badge seed-1'
     if (seedPosition === 2) return 'seed-badge seed-2'
     if (seedPosition <= 4) return 'seed-badge seed-3'
     return 'seed-badge'
   }
+
+  const player1Seed = Number(match.player1?.seed_position) > 0 ? Number(match.player1.seed_position) : null
+  const player2Seed = Number(match.player2?.seed_position) > 0 ? Number(match.player2.seed_position) : null
 
   return (
     <div
@@ -395,19 +413,17 @@ function MatchCard({ match, matchIndex, roundIndex, eventType, eventStatus, onUp
         opacity: eventStatus === 'completed' ? 0.8 : 1
       }}
     >
-      {match.player1?.seed_position && (
-        <div className={getSeedBadgeClass(match.player1.seed_position)}>
-          #{match.player1.seed_position}
+      {player1Seed && (
+        <div className={getSeedBadgeClass(player1Seed)}>
+          #{player1Seed}
         </div>
       )}
-      {match.player2?.seed_position && !match.player1?.seed_position && (
-        <div className={getSeedBadgeClass(match.player2.seed_position)}>
-          #{match.player2.seed_position}
-        </div>
-      )}
-      {match.player1?.seed_position && match.player2?.seed_position && (
-        <div className={getSeedBadgeClass(Math.min(match.player1.seed_position, match.player2.seed_position))} style={{ right: '10px', left: 'auto' }}>
-          #{match.player2.seed_position}
+      {player2Seed && (
+        <div
+          className={getSeedBadgeClass(player2Seed)}
+          style={player1Seed ? { right: '10px', left: 'auto' } : undefined}
+        >
+          #{player2Seed}
         </div>
       )}
 
@@ -442,11 +458,6 @@ function MatchCard({ match, matchIndex, roundIndex, eventType, eventStatus, onUp
             <div className="player-details">
               <div className={`player-name ${match.winner_id && match.winner_id === match.player1_id ? 'winner' : ''} ${match.status === 'completed' && match.winner_id && match.winner_id !== match.player1_id ? 'loser' : ''}`}>
                 {getPlayerDisplay(match.player1, match.player1_partner, match.player1_id)}
-                {match.player1?.seed_position && (
-                  <span style={{ marginLeft: '8px', fontSize: '0.8em', color: theme.palette.warning.dark, fontWeight: 'bold' }}>
-                    (#{match.player1.seed_position})
-                  </span>
-                )}
                 {match.score && match.winner_id === match.player1_id && (
                   <span
                     className="winner-score"
@@ -479,11 +490,6 @@ function MatchCard({ match, matchIndex, roundIndex, eventType, eventStatus, onUp
             <div className="player-details">
               <div className={`player-name ${match.winner_id && match.winner_id === match.player2_id ? 'winner' : ''} ${match.status === 'completed' && match.winner_id && match.winner_id !== match.player2_id ? 'loser' : ''}`}>
                 {getPlayerDisplay(match.player2, match.player2_partner, match.player2_id)}
-                {match.player2?.seed_position && (
-                  <span style={{ marginLeft: '8px', fontSize: '0.8em', color: theme.palette.warning.dark, fontWeight: 'bold' }}>
-                    (#{match.player2.seed_position})
-                  </span>
-                )}
                 {match.score && match.winner_id === match.player2_id && (
                   <span
                     className="winner-score"
@@ -698,7 +704,7 @@ function MatchDialog({ open, match, eventType, onClose, onSave }) {
                     <Typography fontWeight={600} sx={{ mb: 0.5 }}>
                       {getPlayerDisplay(match.player1, match.player1_partner)}
                     </Typography>
-                    {match.player1?.seed_position && (
+                    {Number(match.player1?.seed_position) > 0 && (
                       <Typography variant="caption" color="text.secondary">
                         Seed #{match.player1.seed_position}
                       </Typography>
@@ -712,7 +718,7 @@ function MatchDialog({ open, match, eventType, onClose, onSave }) {
                     <Typography fontWeight={600} sx={{ mb: 0.5 }}>
                       {getPlayerDisplay(match.player2, match.player2_partner)}
                     </Typography>
-                    {match.player2?.seed_position && (
+                    {Number(match.player2?.seed_position) > 0 && (
                       <Typography variant="caption" color="text.secondary">
                         Seed #{match.player2.seed_position}
                       </Typography>
