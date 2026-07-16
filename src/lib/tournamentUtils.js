@@ -148,13 +148,14 @@ export function generateSinglesDraw(participants, rankingsByPlayerId = new Map()
 // Up to half the field may be seeded (players with rank points > 0 only).
 // Each seed gets a random partner; leftover players are randomly paired into unseeded teams.
 // Seeded teams use ATP/ITF bracket placement (same geometry as singles).
+export const ODD_DOUBLES_REGISTRANTS_MESSAGE =
+  'Fail! There seems to be an odd number of registrants, does someone think they can win this on their own! 😂 Please double check the list of registrants and try again.'
+
 export function generateDoublesDraw(participants, rankingsByPlayerId = new Map()) {
   const totalPlayers = participants.length
 
   if (totalPlayers % 2 !== 0) {
-    throw new Error(
-      'Fail! There seems to be an odd number of registrants, does someone think they can win this on their own! 😂 Please double check the list of registrants and try again.'
-    )
+    throw new Error(ODD_DOUBLES_REGISTRANTS_MESSAGE)
   }
 
   const enriched = participants.map((participant) => {

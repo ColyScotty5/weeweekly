@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'preact/hooks'
 import { tournamentsApi, eventsApi, playersApi, participantsApi, matchesApi, rankingsApi } from '../lib/supabase.js'
-import { generateSinglesDraw, generateDoublesDraw, generateMatches, POINTS_SYSTEM, syncNextRoundMatches, syncConsolationMatches, formatResultStatus } from '../lib/tournamentUtils.js'
+import { generateSinglesDraw, generateDoublesDraw, generateMatches, POINTS_SYSTEM, syncNextRoundMatches, syncConsolationMatches, formatResultStatus, ODD_DOUBLES_REGISTRANTS_MESSAGE } from '../lib/tournamentUtils.js'
 import TournamentBracket from './TournamentBracket.jsx'
 import Avatar from './Avatar.jsx'
 import { getUserAvatarByEmail } from '../contexts/AuthContext.jsx'
@@ -581,6 +581,7 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
   const [bracketType, setBracketType] = useState('main') // 'main' or 'consolation'
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [drawErrorModal, setDrawErrorModal] = useState(null)
   const [eventMatches, setEventMatches] = useState({})
   const [rankingMaps, setRankingMaps] = useState({ singles: new Map(), doubles: new Map() })
 
@@ -629,9 +630,7 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
       }
 
       if (eventType === 'doubles' && participants.length % 2 !== 0) {
-        setMessage(
-          'Fail! There seems to be an odd number of registrants, does someone think they can win this on their own! 😂 Please double check the list of registrants and try again.'
-        )
+        setDrawErrorModal(ODD_DOUBLES_REGISTRANTS_MESSAGE)
         return
       }
 
@@ -696,7 +695,11 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
       onUpdate()
     } catch (error) {
       console.error('Error generating draw:', error)
-      setMessage(`❌ Error generating draw: ${error.message}`)
+      if (error.message === ODD_DOUBLES_REGISTRANTS_MESSAGE) {
+        setDrawErrorModal(ODD_DOUBLES_REGISTRANTS_MESSAGE)
+      } else {
+        setMessage(`❌ Error generating draw: ${error.message}`)
+      }
     } finally {
       setLoading(false)
     }
@@ -1063,6 +1066,14 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
           )}
         </div>
       ))}
+
+      {drawErrorModal && (
+        <AlertModal
+          title="Cannot Generate Draw"
+          message={drawErrorModal}
+          onClose={() => setDrawErrorModal(null)}
+        />
+      )}
     </div>
   )
 }
@@ -1468,6 +1479,47 @@ function AddPlayerModal({ onClose, onCreated }) {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  )
+}
+
+function AlertModal({ title, message, onClose }) {
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose()
+    }
+  }
+
+  return (
+    <div className="delete-modal-overlay" onClick={handleOverlayClick}>
+      <div className="delete-modal" style={{ maxWidth: '440px' }}>
+        <div className="delete-modal-header">
+          <h3 className="delete-modal-title">{title}</h3>
+          <button className="delete-modal-close" onClick={onClose} type="button">×</button>
+        </div>
+
+        <div className="delete-modal-content">
+          <div className="delete-warning-icon">😱</div>
+          <p
+            style={{
+              fontSize: '1.75rem',
+              fontWeight: 700,
+              textAlign: 'center',
+              margin: '0 0 16px 0',
+              color: 'var(--text-primary)'
+            }}
+          >
+            Oh My!
+          </p>
+          <p className="delete-warning-text">{message}</p>
+        </div>
+
+        <div className="delete-modal-actions">
+          <button className="btn btn-primary" onClick={onClose} type="button">
+            OK
+          </button>
+        </div>
       </div>
     </div>
   )
