@@ -681,6 +681,9 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
       })
 
       setMessage(`✅ Draw generated successfully! (${draw.seededCount || 0} seeded, ${draw.numberOfByes || 0} byes)`)
+      // Registration is locked once the draw exists
+      setRegistrationMode(false)
+      setSelectedEvent((current) => (current === eventId ? null : current))
       // Load matches for the event to enable completion checking
       await loadEventMatches(eventId)
       onUpdate()
@@ -1004,22 +1007,24 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
               </div>
             )}
             
-            <button
-              onClick={() => setSelectedEvent(selectedEvent === event.id ? null : event.id)}
-              style={{
-                padding: '6px 12px',
-                backgroundColor: '#6c757d',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-            >
-              {selectedEvent === event.id ? 'Hide Details' : 'View Details'}
-            </button>
+            {event.status === 'registration' && (
+              <button
+                onClick={() => setSelectedEvent(selectedEvent === event.id ? null : event.id)}
+                style={{
+                  padding: '6px 12px',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                {selectedEvent === event.id ? 'Hide Details' : 'View Details'}
+              </button>
+            )}
           </div>
 
-          {selectedEvent === event.id && (
+          {event.status === 'registration' && selectedEvent === event.id && (
             <EventDetails
               event={event}
               playersById={rankingMaps[event.event_type] || new Map()}
@@ -1040,7 +1045,7 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
             </div>
           )}
 
-          {registrationMode === event.id && (
+          {event.status === 'registration' && registrationMode === event.id && (
             <RegistrationManager
               event={event}
               players={players}
