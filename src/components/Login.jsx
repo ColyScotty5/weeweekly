@@ -15,6 +15,12 @@ import Visibility from '@mui/icons-material/Visibility'
 import VisibilityOff from '@mui/icons-material/VisibilityOff'
 import { useAuth } from '../contexts/AuthContext'
 
+// Drop images here (served from /public):
+//   public/login-bg-desktop.jpg  — wide / landscape
+//   public/login-bg-mobile.jpg   — tall / portrait
+const LOGIN_BG_DESKTOP = '/login-bg-desktop.jpg'
+const LOGIN_BG_MOBILE = '/login-bg-mobile.jpg'
+
 export default function Login() {
   const [formData, setFormData] = useState({
     email: '',
@@ -52,14 +58,54 @@ export default function Login() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        bgcolor: 'background.default',
-        p: 2
+        p: 2,
+        position: 'relative',
+        overflow: 'hidden',
+        // Mobile / portrait-first background
+        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45)), url(${LOGIN_BG_MOBILE})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        // Desktop / wider screens
+        '@media (min-width: 768px)': {
+          backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url(${LOGIN_BG_DESKTOP})`
+        }
       }}
     >
-      <Card sx={{ width: '100%', maxWidth: 420 }}>
+      {/* Force light scheme so dark mode doesn't make text/inputs white on this card */}
+      <Card
+        data-mui-color-scheme="light"
+        sx={{
+          width: '100%',
+          maxWidth: 420,
+          bgcolor: 'rgba(255, 255, 255, 0.96)',
+          color: 'text.primary',
+          backdropFilter: 'blur(6px)',
+          boxShadow: 6,
+          '& .MuiTypography-root': {
+            color: 'text.primary'
+          },
+          '& .MuiTypography-colorTextSecondary': {
+            color: 'text.secondary'
+          },
+          '& .MuiInputBase-root': {
+            color: 'text.primary',
+            bgcolor: 'background.paper'
+          },
+          '& .MuiInputLabel-root': {
+            color: 'text.secondary'
+          },
+          '& .MuiOutlinedInput-notchedOutline': {
+            borderColor: 'rgba(0, 0, 0, 0.23)'
+          },
+          '& .MuiIconButton-root': {
+            color: 'action.active'
+          }
+        }}
+      >
         <CardContent sx={{ p: 4 }}>
           <Stack spacing={1} sx={{ mb: 3, textAlign: 'center' }}>
-            <Typography variant="h5" component="h1" fontWeight={700}>
+            <Typography variant="h5" component="h1" fontWeight={700} color="text.primary">
               The Legendary Wee Weekly!
             </Typography>
             <Typography variant="body2" color="text.secondary">
