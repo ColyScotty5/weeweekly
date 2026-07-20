@@ -517,6 +517,29 @@ export const matchesApi = {
       .eq('id', id)
     
     if (error) throw error
+  },
+
+  // Delete all matches (and their results) for an event — used by Reset Draw
+  async deleteByEvent(eventId) {
+    const matches = await this.getByEvent(eventId)
+    const matchIds = (matches || []).map((match) => match.id).filter(Boolean)
+
+    if (matchIds.length > 0) {
+      const { error: resultsError } = await supabase
+        .from('match_results')
+        .delete()
+        .in('match_id', matchIds)
+
+      if (resultsError) throw resultsError
+    }
+
+    const { error } = await supabase
+      .from('matches')
+      .delete()
+      .eq('event_id', eventId)
+
+    if (error) throw error
+    return matchIds.length
   }
 }
 

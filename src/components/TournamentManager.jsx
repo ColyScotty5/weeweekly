@@ -590,6 +590,7 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [drawErrorModal, setDrawErrorModal] = useState(null)
+  const [eventToReset, setEventToReset] = useState(null)
   const [eventMatches, setEventMatches] = useState({})
   const [rankingMaps, setRankingMaps] = useState({ singles: new Map(), doubles: new Map() })
 
@@ -719,6 +720,48 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
       } else {
         setMessage(`❌ Error generating draw: ${error.message}`)
       }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const resetDraw = async () => {
+    if (!eventToReset) return
+
+    setLoading(true)
+    try {
+      const eventId = eventToReset.id
+      const participants = await participantsApi.getByEvent(eventId)
+
+      await matchesApi.deleteByEvent(eventId)
+
+      for (const participant of participants) {
+        await participantsApi.update(participant.id, {
+          seed_position: null,
+          points_earned: 0,
+          status: 'registered'
+        })
+      }
+
+      await eventsApi.update(eventId, {
+        status: 'registration',
+        draw_structure: null
+      })
+
+      setEventMatches((prev) => {
+        const next = { ...prev }
+        delete next[eventId]
+        return next
+      })
+      if (bracketView === eventId) setBracketView(null)
+      setSelectedEvent(eventId)
+      setRegistrationMode(eventId)
+      setEventToReset(null)
+      setMessage('✅ Draw reset. You can update registration and generate a new draw.')
+      onUpdate()
+    } catch (error) {
+      console.error('Error resetting draw:', error)
+      setMessage(`❌ Error resetting draw: ${error.message}`)
     } finally {
       setLoading(false)
     }
@@ -939,6 +982,18 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
               </>
             )}
 
+            {(event.status === 'draw_created' || event.status === 'in_progress') && (
+              <Button
+                size="small"
+                variant="outlined"
+                color="warning"
+                onClick={() => setEventToReset(event)}
+                disabled={loading}
+              >
+                Reset Draw
+              </Button>
+            )}
+
             {(event.status === 'draw_created' || event.status === 'in_progress' || event.status === 'completed') && (
               <>
                 <Button
@@ -1024,6 +1079,48 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
         message={drawErrorModal}
         onClose={() => setDrawErrorModal(null)}
       />
+
+      <Dialog
+        open={Boolean(eventToReset)}
+        onClose={loading ? undefined : () => setEventToReset(null)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Reset draw?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This will delete all matches for the{' '}
+            <strong>
+              {eventToReset?.event_type
+                ? eventToReset.event_type.charAt(0).toUpperCase() + eventToReset.event_type.slice(1)
+                : ''}
+            </strong>{' '}
+            event, clear seeds, and return it to registration so you can fix the player list and generate a new draw.
+          </DialogContentText>
+          <DialogContentText sx={{ mt: 1.5 }}>
+            Participants stay registered. Any match results for this event will be removed.
+          </DialogContentText>
+          {eventToReset?.status === 'in_progress' && (
+            <DialogContentText sx={{ mt: 1.5, color: 'warning.main' }}>
+              This event is already in progress — recorded scores and results will be lost.
+            </DialogContentText>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEventToReset(null)} disabled={loading}>
+            Cancel
+          </Button>
+          <Button
+            color="warning"
+            variant="contained"
+            onClick={resetDraw}
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={16} color="inherit" /> : null}
+          >
+            {loading ? 'Resetting...' : 'Reset Draw'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

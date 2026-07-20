@@ -80,6 +80,7 @@ export const RESULT_STATUS_LABELS = {
 /**
  * Infer result status from points earned.
  * Main-bracket values win on collisions with consolation (e.g. 14 → quarter_final).
+ * Non-exact values (e.g. shared 37.5 → 38) snap to the nearest known points tier.
  */
 export function resultStatusFromPoints(eventType, pointsEarned) {
   const system = POINTS_SYSTEM[eventType]
@@ -93,7 +94,20 @@ export function resultStatusFromPoints(eventType, pointsEarned) {
     byPoints.set(pts, round)
   }
 
-  return byPoints.get(pointsEarned) || 'eliminated'
+  const pts = Number(pointsEarned)
+  if (byPoints.has(pts)) return byPoints.get(pts)
+
+  let bestPts = null
+  let bestDist = Infinity
+  for (const known of byPoints.keys()) {
+    const dist = Math.abs(known - pts)
+    if (dist < bestDist || (dist === bestDist && (bestPts == null || known > bestPts))) {
+      bestDist = dist
+      bestPts = known
+    }
+  }
+
+  return bestPts == null ? 'eliminated' : byPoints.get(bestPts)
 }
 
 export function formatResultStatus(status) {

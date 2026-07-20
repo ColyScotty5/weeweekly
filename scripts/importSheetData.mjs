@@ -8,7 +8,6 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createClient } from '@supabase/supabase-js'
-import { resultStatusFromPoints } from '../src/lib/tournamentUtils.js'
 
 function loadEnv(path = '.env') {
   const text = readFileSync(resolve(path), 'utf8')
@@ -117,8 +116,12 @@ async function ensureEvent(tournamentId, eventType) {
   return data
 }
 
-async function upsertParticipant(eventId, playerId, pointsEarned, eventType) {
-  const status = resultStatusFromPoints(eventType, pointsEarned)
+async function upsertParticipant(eventId, playerId, pointsEarned, _eventType) {
+  // NUMERIC(8,1) supports shared half-points (e.g. 37.5, 8.5)
+  const points = Math.round(Number(pointsEarned) * 10) / 10
+  // Live DB check constraint may be narrower than setup SQL; imported rows use eliminated
+  // (same as prior sheet imports). Round-result status is still available via points.
+  const status = 'eliminated'
 
   const { data: existing, error } = await supabase
     .from('event_participants')
@@ -128,11 +131,13 @@ async function upsertParticipant(eventId, playerId, pointsEarned, eventType) {
     .maybeSingle()
   if (error) throw error
 
+  const existingPoints = existing == null ? null : Number(existing.points_earned)
+
   if (existing) {
-    if (existing.points_earned !== pointsEarned || existing.status !== status) {
+    if (existingPoints !== points || existing.status !== status) {
       const { error: updateError } = await supabase
         .from('event_participants')
-        .update({ points_earned: pointsEarned, status })
+        .update({ points_earned: points, status })
         .eq('id', existing.id)
       if (updateError) throw updateError
       return 'updated'
@@ -143,7 +148,7 @@ async function upsertParticipant(eventId, playerId, pointsEarned, eventType) {
   const { error: insertError } = await supabase.from('event_participants').insert({
     event_id: eventId,
     player_id: playerId,
-    points_earned: pointsEarned,
+    points_earned: points,
     status,
   })
   if (insertError) throw insertError
