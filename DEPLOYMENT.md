@@ -1,112 +1,121 @@
 # Deployment Guide
 
-This guide explains how to deploy your tennis tournament app to various hosting platforms.
+Deploy the Wee Weekly app (Vite + React + Supabase) as a static site. Production files live in `dist/` after `npm run build`.
 
-## Quick Start
+## Recommended: GitHub Pages + custom domain
 
-1. **Build the app for production:**
-   ```bash
-   npm run build
-   ```
+The repo includes [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml). Every push to `main` (or a manual **Run workflow**) builds the app and publishes it to GitHub Pages.
 
-2. **The built files are in the `dist/` folder** - these are the files you need to deploy.
+### 1. Add Supabase secrets
 
-## Deployment Options
+Vite embeds `VITE_*` values at **build** time, so GitHub Actions needs them as repository secrets.
 
-### Option 1: GitHub Pages (Free)
+1. Open the repo → **Settings → Secrets and variables → Actions**
+2. Add:
+   - `VITE_SUPABASE_URL` — e.g. `https://xxxx.supabase.co`
+   - `VITE_SUPABASE_PUBLISHABLE_KEY` — preferred (Supabase publishable / anon key)
+   - *(optional)* `VITE_SUPABASE_ANON_KEY` — only if you still use the older name locally
 
-1. **Enable GitHub Pages in your repository:**
-   - Go to your GitHub repository
-   - Click Settings → Pages
-   - Under "Source", select "Deploy from a branch"
-   - Select "gh-pages" branch (we'll create this)
+Get values from Supabase → **Project Settings → API**.
 
-2. **Deploy using GitHub Actions:**
-   - The `.github/workflows/deploy.yml` file is already configured
-   - Just push your code to the main branch
-   - GitHub will automatically build and deploy to `https://yourusername.github.io/your-repo-name`
+### 2. Enable GitHub Pages (Actions)
 
-### Option 2: Netlify (Free tier available)
+1. Repo → **Settings → Pages**
+2. **Build and deployment → Source**: **GitHub Actions** (not “Deploy from a branch”)
+3. Push to `main`, or run **Actions → Deploy to GitHub Pages → Run workflow**
+4. Confirm the workflow succeeds; the site will be at  
+   `https://<user-or-org>.github.io/<repo-name>/` until a custom domain is set
 
-1. **Connect your GitHub repository to Netlify:**
-   - Go to [netlify.com](https://netlify.com)
-   - Click "New site from Git"
-   - Connect your GitHub repository
-   - Build command: `npm run build`
-   - Publish directory: `dist`
+### 3. Attach your custom domain
 
-2. **Custom domain:**
-   - In Netlify dashboard, go to Domain settings
-   - Add your custom domain
-   - Follow DNS configuration instructions
+1. Still under **Settings → Pages**, set **Custom domain** to your domain (e.g. `weeweekly.example.com`) and save
+2. At your DNS provider, point the domain at GitHub:
 
-### Option 3: Vercel (Free tier available)
+   | Host | Type | Value |
+   |---|---|---|
+   | `www` (or subdomain) | `CNAME` | `<user-or-org>.github.io` |
+   | apex (`example.com`) | `A` / `AAAA` | Use the IPs GitHub shows on the Pages settings page |
 
-1. **Connect your GitHub repository to Vercel:**
-   - Go to [vercel.com](https://vercel.com)
-   - Import your GitHub repository
-   - Vercel will auto-detect Vite settings
-   - Deploy automatically
+3. Wait for DNS + GitHub’s certificate check, then enable **Enforce HTTPS**
+4. With a custom domain, the app is served from `/` — no Vite `base` path change is required
 
-### Option 4: Traditional Web Hosting
+### Local vs GitHub Pages base path
 
-1. **Upload the `dist/` folder contents to your web server**
-2. **Configure your web server to serve the `index.html` file for all routes**
+| Hosting | Vite `base` |
+|---|---|
+| Custom domain (recommended) | `/` (default — already correct) |
+| Project URL only (`username.github.io/repo/`) | Set `base: '/repo/'` in `vite.config.js` |
 
-## Important Notes
+## Other hosts (also Git-connected)
 
-### Environment Variables
+### Netlify
 
-**For Local Development:**
-1. Create a `.env` file in the project root (already in `.gitignore`)
-2. Add your Supabase credentials:
-   ```
-   VITE_SUPABASE_URL=https://your-project.supabase.co
-   VITE_SUPABASE_ANON_KEY=your-anon-key-here
-   ```
-3. Get these from: Supabase Dashboard → Settings → API
-4. Restart your dev server after creating `.env`
+1. [netlify.com](https://netlify.com) → **Add new site → Import an existing project** → connect GitHub
+2. Build command: `npm run build`
+3. Publish directory: `dist`
+4. Site settings → **Environment variables**: same `VITE_SUPABASE_*` keys as above
+5. Domain management → add your custom domain and follow DNS prompts
 
-**For Production (Vercel/Netlify):**
-1. Go to your hosting platform dashboard
-2. Navigate to Environment Variables settings
-3. Add the same variables:
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
-4. Redeploy your app
+### Vercel
 
-**Security Note:** The anon key is safe to expose in client-side code. It's protected by Supabase Row Level Security (RLS) policies. Never commit your `.env` file to the repo
+1. [vercel.com](https://vercel.com) → **Import** the GitHub repo (Vite is auto-detected)
+2. Add the same `VITE_SUPABASE_*` environment variables
+3. Deploy; attach the domain under **Project → Settings → Domains**
 
-### Single Page Application (SPA) Routing
-This app uses client-side routing. Configure your hosting platform to:
-- Serve `index.html` for all routes (not just `/`)
-- This prevents 404 errors when users navigate directly to app routes
+### Traditional web hosting
 
-### HTTPS
-Your app should be served over HTTPS, especially since it uses Supabase authentication.
+1. Run `npm run build` locally (with a production `.env` present)
+2. Upload the contents of `dist/` to the web root
+3. Configure the server to serve `index.html` for unknown paths (SPA fallback)
 
-## Testing the Production Build Locally
+## Environment variables
 
-You can test the production build locally:
+### Local development
+
+Create `.env` in the project root (gitignored):
+
+```
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-or-anon-key
+```
+
+`VITE_SUPABASE_ANON_KEY` is still accepted as a fallback. Restart the dev server after changing `.env`.
+
+### Production
+
+| Platform | Where to set |
+|---|---|
+| GitHub Pages | Repo **Actions** secrets (see above) |
+| Netlify / Vercel | Project environment variables, then redeploy |
+
+**Security:** The publishable/anon key is meant for the browser and must be protected by Supabase **RLS**. Never commit `.env` or service-role keys.
+
+## SPA routing & HTTPS
+
+- Serve `index.html` for client routes if you add path-based routing later (GitHub Pages serves the built `index.html` at `/` by default).
+- Prefer HTTPS (GitHub Pages / Netlify / Vercel provide this). Needed for secure cookies and modern browser APIs when talking to Supabase.
+
+## Test the production build locally
 
 ```bash
+npm run build
 npm run preview
 ```
 
-This will serve the built files locally so you can test before deploying.
-
 ## Troubleshooting
 
-### White Screen or Loading Issues
-- Check browser console for errors
-- Verify Supabase configuration
-- Ensure all environment variables are set correctly
+### White screen / failed API calls
+- Confirm Actions secrets (or host env vars) are set and the workflow rebuilt after adding them
+- Check the browser console for missing Supabase URL/key or RLS errors
 
-### 404 Errors on Page Refresh
-- Configure your hosting platform for SPA routing
-- Ensure `index.html` is served for all routes
+### Custom domain not working
+- DNS still propagating (can take minutes to hours)
+- Pages custom domain must match the DNS name exactly
+- Certificate pending until DNS validates — then turn on **Enforce HTTPS**
 
-### Build Errors
-- Run `npm run build` locally first to catch any issues
-- Check that all dependencies are properly installed
-- Verify that your code works in development mode first
+### 404 on refresh (other hosts)
+- Enable SPA rewrite: all routes → `index.html`
+
+### Build fails in Actions
+- Run `npm run build` locally first
+- Ensure `package-lock.json` is committed (`npm ci` needs it)
