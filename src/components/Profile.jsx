@@ -19,9 +19,9 @@ import { useAuth } from '../contexts/AuthContext'
 export default function Profile({ onClose }) {
   const { user, updateProfile } = useAuth()
   const [formData, setFormData] = useState({
-    currentPassword: 'REMOVED',
-    newPassword: 'REMOVED',
-    confirmPassword: 'REMOVED'
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
   })
   const [emailData, setEmailData] = useState({
     newEmail: '',
@@ -79,7 +79,7 @@ export default function Profile({ onClose }) {
         newPassword: formData.newPassword
       })
       setSuccess('Password updated successfully!')
-      setFormData({ currentPassword: 'REMOVED', newPassword: 'REMOVED', confirmPassword: 'REMOVED' })
+      setFormData({ currentPassword: '', newPassword: '', confirmPassword: '' })
     } catch (err) {
       setError(err.message || 'Password could not be updated')
     } finally {

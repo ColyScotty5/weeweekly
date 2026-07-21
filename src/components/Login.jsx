@@ -24,7 +24,7 @@ const LOGIN_BG_MOBILE = `${import.meta.env.BASE_URL}login-bg-mobile.jpg`
 export default function Login({ onCancel }) {
   const [formData, setFormData] = useState({
     email: '',
-    password: 'REMOVED'
+    password: ''
   })
   const [error, setError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
