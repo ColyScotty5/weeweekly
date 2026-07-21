@@ -99,12 +99,15 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
 ### 3. Database Setup
-1. In your Supabase dashboard, go to the SQL Editor
-2. Copy and paste the contents of `database_migrations.sql`
-3. Run the SQL commands to create all necessary tables and indexes
+1. Install the Supabase CLI and link it to the intended project
+2. Review the versioned migrations under `supabase/migrations/`
+3. Run `supabase db push`
+4. Create administrator users through Supabase Auth, then provision their
+   `admin_profiles` rows through a trusted operator session
 
 ### 4. Initial Data (Optional)
-The app includes a database test component that can seed initial player data from the existing JSON file.
+Add players through the authenticated administration UI. Production-derived
+player fixtures and local seed helpers are intentionally not stored in this repository.
 
 ### 5. Run the Application
 ```bash
@@ -205,15 +208,16 @@ The modular structure makes it easy to extend functionality:
 
 ### Database Modifications
 When modifying the database schema:
-1. Update `database_migrations.sql`
+1. Add a new versioned file under `supabase/migrations/`
 2. Update corresponding API methods
 3. Update component interfaces as needed
+4. Run `supabase test db` and the repository security checks
 
 ## Troubleshooting
 
 ### Common Issues
 1. **Database connection errors**: Check your `.env` file and Supabase credentials
-2. **RLS (Row Level Security) issues**: Ensure policies are set up correctly in Supabase
+2. **RLS (Row Level Security) issues**: Run the policy tests under `supabase/tests/` and verify the linked Supabase project
 3. **Draw generation fails**: Verify minimum participant requirements are met
 
 ### Support

@@ -21,7 +21,6 @@ import {
 import CloseIcon from '@mui/icons-material/Close'
 import { rankingsApi } from '../lib/supabase.js'
 import Avatar from './Avatar.jsx'
-import { getUserAvatarByEmail } from '../contexts/AuthContext.jsx'
 
 export default function Leaderboard({ type, onClose }) {
   const [players, setPlayers] = useState([])
@@ -38,9 +37,8 @@ export default function Leaderboard({ type, onClose }) {
     try {
       const data = await rankingsApi.getRollingLeaderboard(type)
       setPlayers(data)
-    } catch (err) {
-      console.error('Error loading leaderboard:', err)
-      setError(err.message)
+    } catch {
+      setError('The leaderboard could not be loaded. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -107,7 +105,6 @@ export default function Leaderboard({ type, onClose }) {
                     <TableCell>
                       <Stack direction="row" spacing={1.5} alignItems="center">
                         <Avatar
-                          src={getUserAvatarByEmail(player.email)}
                           alt={player.name}
                           size={40}
                         />

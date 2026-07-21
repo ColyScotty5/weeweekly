@@ -1,54 +1,34 @@
-import { createContext, useContext, useState, useEffect } from 'react'
-
-// Initial users data
-const INITIAL_USERS = [
-  {
-    id: 1,
-    name: 'Scott Turnbull',
-    email: 'REMOVED_EMAIL',
-    password: 'REMOVED',
-    role: 'Super Administrator',
-    avatar: null
-  },
-  {
-    id: 2,
-    name: 'Luke Adams',
-    email: 'REMOVED_EMAIL',
-    password: 'REMOVED',
-    role: 'Administrator',
-    avatar: null
-  }
-]
-
-// Store users in localStorage for persistence
-const getUsersFromStorage = () => {
-  const stored = localStorage.getItem('weeweekly_users')
-  if (stored) {
-    try {
-      return JSON.parse(stored)
-    } catch (error) {
-      console.error('Error parsing stored users:', error)
-    }
-  }
-  // Initialize with default users if not in storage
-  localStorage.setItem('weeweekly_users', JSON.stringify(INITIAL_USERS))
-  return INITIAL_USERS
-}
-
-const saveUsersToStorage = (users) => {
-  localStorage.setItem('weeweekly_users', JSON.stringify(users))
-}
-
-// Helper function to get user avatar by email
-export const getUserAvatarByEmail = (email) => {
-  if (!email) return null
-
-  const users = getUsersFromStorage()
-  const user = users.find((u) => u.email === email)
-  return user?.avatar || null
-}
+import { createContext, useContext, useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext()
+const GENERIC_LOGIN_ERROR = 'Unable to sign in with those credentials'
+const ADMIN_ACCESS_ERROR = 'This account does not have administrator access'
+
+const roleLabel = (role) => (role === 'super_admin' ? 'Super Administrator' : 'Administrator')
+
+async function loadAdminUser(authUser) {
+  if (!authUser) return null
+
+  const { data: profile, error } = await supabase
+    .from('admin_profiles')
+    .select('display_name, role, avatar_url')
+    .eq('user_id', authUser.id)
+    .single()
+
+  if (error || !profile || !['admin', 'super_admin'].includes(profile.role)) {
+    throw new Error(ADMIN_ACCESS_ERROR)
+  }
+
+  return {
+    id: authUser.id,
+    email: authUser.email,
+    name: profile.display_name,
+    role: profile.role,
+    roleLabel: roleLabel(profile.role),
+    avatar: profile.avatar_url || null
+  }
+}
 
 export const useAuth = () => {
   const context = useContext(AuthContext)
@@ -62,112 +42,100 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  // Check for existing session on mount
   useEffect(() => {
-    const savedUser = localStorage.getItem('weeweekly_user')
-    if (savedUser) {
+    let active = true
+
+    const syncSession = async (session) => {
       try {
-        const userData = JSON.parse(savedUser)
-        setUser(userData)
-      } catch (error) {
-        console.error('Error parsing saved user data:', error)
-        localStorage.removeItem('weeweekly_user')
+        const adminUser = session?.user ? await loadAdminUser(session.user) : null
+        if (active) setUser(adminUser)
+      } catch {
+        if (active) setUser(null)
+        await supabase.auth.signOut()
+      } finally {
+        if (active) setLoading(false)
       }
     }
-    setLoading(false)
+
+    supabase.auth.getSession().then(({ data }) => syncSession(data.session))
+
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setTimeout(() => syncSession(session), 0)
+    })
+
+    return () => {
+      active = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   const login = async (email, password) => {
     setLoading(true)
 
     try {
-      // Get current users from storage
-      const users = getUsersFromStorage()
-
-      // Find user by email and password
-      const foundUser = users.find(
-        (u) => u.email === email && u.password === password
-      )
-
-      if (!foundUser) {
-        throw new Error('Invalid email or password')
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password
+      })
+      if (error || !data.user) {
+        throw new Error(GENERIC_LOGIN_ERROR)
       }
 
-      // Remove password from user object before storing
-      const { password: _, ...userWithoutPassword } = foundUser
-
-      setUser(userWithoutPassword)
-      localStorage.setItem('weeweekly_user', JSON.stringify(userWithoutPassword))
-
-      return userWithoutPassword
+      const adminUser = await loadAdminUser(data.user)
+      setUser(adminUser)
+      return adminUser
     } catch (error) {
-      throw error
+      await supabase.auth.signOut()
+      if (error.message === ADMIN_ACCESS_ERROR) throw error
+      throw new Error(GENERIC_LOGIN_ERROR)
     } finally {
       setLoading(false)
     }
   }
 
-  const logout = () => {
+  const logout = async () => {
+    await supabase.auth.signOut()
     setUser(null)
-    localStorage.removeItem('weeweekly_user')
   }
 
   const updateProfile = async (updates) => {
-    if (!user) {
-      throw new Error('No user logged in')
-    }
+    if (!user) throw new Error('You must be signed in')
 
     setLoading(true)
-
     try {
-      const users = getUsersFromStorage()
-      const userIndex = users.findIndex((u) => u.id === user.id)
-
-      if (userIndex === -1) {
-        throw new Error('User not found')
-      }
-
-      // Handle password change
       if (updates.currentPassword && updates.newPassword) {
-        if (users[userIndex].password !== updates.currentPassword) {
-          throw new Error('Current password is incorrect')
+        const { error: reauthenticationError } = await supabase.auth.signInWithPassword({
+          email: user.email,
+          password: updates.currentPassword
+        })
+        if (reauthenticationError) {
+          throw new Error('Current password could not be verified')
         }
-        users[userIndex].password = updates.newPassword
+
+        const { error } = await supabase.auth.updateUser({ password: updates.newPassword })
+        if (error) throw new Error('Password could not be updated')
       }
 
-      // Handle email change
       if (updates.newEmail) {
-        // Check if new email is already in use by another user
-        const emailExists = users.some((u) => u.id !== user.id && u.email === updates.newEmail)
-        if (emailExists) {
-          throw new Error('Email address is already in use')
-        }
-
-        // Validate email format
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-        if (!emailRegex.test(updates.newEmail)) {
-          throw new Error('Please enter a valid email address')
-        }
-
-        users[userIndex].email = updates.newEmail
+        const { error } = await supabase.auth.updateUser({ email: updates.newEmail.trim() })
+        if (error) throw new Error('Email address could not be updated')
       }
 
-      // Handle avatar update
-      if (Object.prototype.hasOwnProperty.call(updates, 'avatar')) {
-        users[userIndex].avatar = updates.avatar
+      if (updates.displayName) {
+        const { error } = await supabase
+          .from('admin_profiles')
+          .update({ display_name: updates.displayName.trim(), updated_at: new Date().toISOString() })
+          .eq('user_id', user.id)
+        if (error) throw new Error('Profile could not be updated')
       }
 
-      // Save updated users to storage
-      saveUsersToStorage(users)
-
-      // Update current user state (without password)
-      const { password: _, ...updatedUserWithoutPassword } = users[userIndex]
-      setUser(updatedUserWithoutPassword)
-      localStorage.setItem('weeweekly_user', JSON.stringify(updatedUserWithoutPassword))
-
-      return updatedUserWithoutPassword
-    } catch (error) {
-      throw error
+      const { data, error } = await supabase.auth.getUser()
+      if (error || !data.user) throw new Error('Profile could not be refreshed')
+      const updatedUser = await loadAdminUser(data.user)
+      setUser(updatedUser)
+      return updatedUser
     } finally {
       setLoading(false)
     }
@@ -179,7 +147,9 @@ export const AuthProvider = ({ children }) => {
     logout,
     updateProfile,
     loading,
-    isAuthenticated: !!user
+    isAuthenticated: Boolean(user),
+    isAdmin: Boolean(user && ['admin', 'super_admin'].includes(user.role)),
+    isSuperAdmin: user?.role === 'super_admin'
   }
 
   return (

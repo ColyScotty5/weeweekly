@@ -22,8 +22,8 @@ import CloseIcon from '@mui/icons-material/Close'
 import { useTheme, alpha } from '@mui/material/styles'
 import { matchesApi } from '../lib/supabase.js'
 import { createNextRoundMatches, syncConsolationMatches, syncNextRoundMatches } from '../lib/tournamentUtils.js'
+import { reportError } from '../lib/errors.js'
 import Avatar from './Avatar.jsx'
-import { getUserAvatarByEmail } from '../contexts/AuthContext.jsx'
 
 export default function TournamentBracket({ event, bracketType = 'main', onMatchUpdate }) {
   const [matches, setMatches] = useState([])
@@ -63,7 +63,7 @@ export default function TournamentBracket({ event, bracketType = 'main', onMatch
         try {
           await syncConsolationMatches(event.id)
         } catch (error) {
-          console.error('Error syncing consolation matches:', error)
+          reportError('Error syncing consolation matches', error)
         }
 
         const refreshed = await matchesApi.getByEvent(event.id)
@@ -92,13 +92,13 @@ export default function TournamentBracket({ event, bracketType = 'main', onMatch
             setMatches(withSeeds(again.filter((match) => match.bracket_type === 'main' || !match.bracket_type)))
             return
           } catch (error) {
-            console.error('Error syncing next round matches:', error)
+            reportError('Error syncing next round matches', error)
           }
         }
         setMatches(withSeeds(mainMatches))
       }
     } catch (error) {
-      console.error('Error loading matches:', error)
+      reportError('Error loading matches', error)
       setMatches([])
     } finally {
       setLoading(false)
@@ -212,7 +212,7 @@ export default function TournamentBracket({ event, bracketType = 'main', onMatch
               try {
                 await createNextRoundMatches(event.id, result.round_name)
               } catch (error) {
-                console.error('Error creating next round matches:', error)
+                reportError('Error creating next round matches', error)
               }
 
               const isMainBracket =
@@ -221,7 +221,7 @@ export default function TournamentBracket({ event, bracketType = 'main', onMatch
                 try {
                   await syncConsolationMatches(event.id)
                 } catch (error) {
-                  console.error('Error syncing consolation matches:', error)
+                  reportError('Error syncing consolation matches', error)
                 }
               }
             }
@@ -233,8 +233,8 @@ export default function TournamentBracket({ event, bracketType = 'main', onMatch
             setShowDialog(false)
             setSelectedMatch(null)
           } catch (error) {
-            console.error('Error updating match:', error)
-            setErrorMessage(`Failed to update match: ${error.message || 'Unknown error'}. Please try again.`)
+            reportError('Error updating match', error)
+            setErrorMessage('The match could not be updated. Please try again.')
             throw error
           }
         }}
@@ -450,7 +450,6 @@ function MatchCard({ match, matchIndex, roundIndex, eventType, eventStatus, onUp
           <div className="player-header-bracket">
             {match.player1 && (
               <Avatar
-                src={getUserAvatarByEmail(match.player1?.email)}
                 alt={match.player1?.name}
                 size={28}
               />
@@ -482,7 +481,6 @@ function MatchCard({ match, matchIndex, roundIndex, eventType, eventStatus, onUp
           <div className="player-header-bracket">
             {match.player2 && (
               <Avatar
-                src={getUserAvatarByEmail(match.player2?.email)}
                 alt={match.player2?.name}
                 size={28}
               />
@@ -573,14 +571,6 @@ function MatchDialog({ open, match, eventType, onClose, onSave }) {
     setLoading(true)
 
     try {
-      console.log('MatchDialog handleSave called with:', {
-        status,
-        winnerId,
-        player1Score,
-        player2Score,
-        matchId: match.id
-      })
-
       let formattedScore = null
       if (status === 'completed' && player1Score && player2Score) {
         const hasTiebreaker = ((player1Score === '7' && player2Score === '6') || (player1Score === '6' && player2Score === '7'))
@@ -600,10 +590,9 @@ function MatchDialog({ open, match, eventType, onClose, onSave }) {
         score: formattedScore
       }
 
-      console.log('Calling onSave with updatedMatch:', updatedMatch)
       await onSave(updatedMatch)
     } catch (error) {
-      console.error('Error in MatchDialog handleSave:', error)
+      reportError('Error saving match dialog', error)
       // Parent shows Snackbar via rethrown/handled error
     } finally {
       setLoading(false)

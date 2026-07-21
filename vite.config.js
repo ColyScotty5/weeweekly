@@ -6,7 +6,8 @@ import { resolve } from 'path'
 export default defineConfig({
   plugins: [react()],
   build: {
-    manifest: true,
+    manifest: false,
+    sourcemap: false,
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html')

@@ -2,6 +2,11 @@
 
 Deploy the Wee Weekly app (Vite + React + Supabase) as a static site. Production files live in `dist/` after `npm run build`.
 
+Before deploying, apply the versioned Supabase migrations and follow the
+administrator bootstrap/credential-rotation procedure in
+[`SECURITY.md`](./SECURITY.md). The application must not be deployed while
+anonymous database writes are still permitted.
+
 ## Recommended: GitHub Pages + custom domain
 
 The repo includes [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml). Every push to `main` (or a manual **Run workflow**) builds the app and publishes it to GitHub Pages.
@@ -89,6 +94,11 @@ VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-or-anon-key
 | Netlify / Vercel | Project environment variables, then redeploy |
 
 **Security:** The publishable/anon key is meant for the browser and must be protected by Supabase **RLS**. Never commit `.env` or service-role keys.
+
+For complete CSP, anti-framing, HSTS, referrer, and permissions headers, use a
+host that supports custom response headers. `vercel.json` contains the required
+header set. GitHub Pages cannot apply repository-defined response headers, so it
+uses only the CSP and referrer policy embedded in `index.html`.
 
 ## SPA routing & HTTPS
 

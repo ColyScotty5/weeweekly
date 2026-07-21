@@ -1,39 +1,37 @@
 /**
  * One-off import: Google Sheet unpivoted JSON → Supabase
- * Usage: node scripts/importSheetData.mjs [/path/to/weeweekly_import.json]
+ * Usage: node scripts/importSheetData.mjs --apply [/path/to/weeweekly_import.json]
  *
- * Expects .env with VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY
- * (or VITE_SUPABASE_ANON_KEY). Does not commit sheet data.
+ * Requires SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and
+ * OPERATOR_CONFIRM_PROJECT_REF in the operator environment.
  */
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createClient } from '@supabase/supabase-js'
 
-function loadEnv(path = '.env') {
-  const text = readFileSync(resolve(path), 'utf8')
-  for (const line of text.split('\n')) {
-    const trimmed = line.trim()
-    if (!trimmed || trimmed.startsWith('#')) continue
-    const i = trimmed.indexOf('=')
-    if (i === -1) continue
-    const key = trimmed.slice(0, i).trim()
-    const value = trimmed.slice(i + 1).trim()
-    if (!process.env[key]) process.env[key] = value
-  }
-}
+const applyChanges = process.argv.includes('--apply')
+const inputPath = process.argv.find((argument) => argument !== '--apply' && argument.endsWith('.json'))
+const supabaseUrl = process.env.SUPABASE_URL
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+const confirmedProjectRef = process.env.OPERATOR_CONFIRM_PROJECT_REF
 
-loadEnv()
-
-const supabaseUrl = process.env.VITE_SUPABASE_URL
-const supabaseKey =
-  process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY
-
-if (!supabaseUrl || !supabaseKey) {
-  console.error('Missing Supabase URL or key in .env')
+if (!applyChanges) {
+  console.error('Refusing to write without the explicit --apply flag.')
   process.exit(1)
 }
 
-const jsonPath = resolve(process.argv[2] || '/tmp/weeweekly_import.json')
+if (!supabaseUrl || !supabaseKey || !confirmedProjectRef) {
+  console.error('Missing required operator environment configuration.')
+  process.exit(1)
+}
+
+const actualProjectRef = new URL(supabaseUrl).hostname.split('.')[0]
+if (actualProjectRef !== confirmedProjectRef) {
+  console.error('The confirmed project reference does not match SUPABASE_URL.')
+  process.exit(1)
+}
+
+const jsonPath = resolve(inputPath || '/tmp/weeweekly_import.json')
 const payload = JSON.parse(readFileSync(jsonPath, 'utf8'))
 
 const supabase = createClient(supabaseUrl, supabaseKey)
@@ -156,7 +154,6 @@ async function upsertParticipant(eventId, playerId, pointsEarned, _eventType) {
 }
 
 async function main() {
-  console.log('Importing from', jsonPath)
   console.log('Stats:', payload.stats)
 
   // Probe schema
@@ -198,13 +195,13 @@ async function main() {
 
   const { count: playerCount } = await supabase
     .from('players')
-    .select('*', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true })
   const { count: participantCount } = await supabase
     .from('event_participants')
-    .select('*', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true })
   const { count: tournamentCount } = await supabase
     .from('tournaments')
-    .select('*', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true })
 
   console.log('DB totals:', { playerCount, tournamentCount, participantCount })
   console.log('Done.')

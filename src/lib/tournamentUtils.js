@@ -1,5 +1,6 @@
-// Tournament utility functions for draw generation and points calculation
+import { reportError } from './errors.js'
 
+// Tournament utility functions for draw generation and points calculation
 /** Same ordering as the leaderboard UI (best first). */
 export function compareLeaderboardEntries(a, b) {
   const rankA = a.rank == null ? Number.POSITIVE_INFINITY : a.rank
@@ -1048,7 +1049,7 @@ export async function createNextRoundMatches(eventId, completedRound) {
   try {
     return await syncNextRoundMatches(eventId, completedRound)
   } catch (error) {
-    console.error('Error syncing next round matches:', error)
+    reportError('Error syncing next round matches', error)
     return false
   }
 }

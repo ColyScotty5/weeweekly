@@ -2,8 +2,8 @@ import { Box, CircularProgress, Typography, Stack } from '@mui/material'
 import { useAuth } from '../contexts/AuthContext'
 import Login from './Login'
 
-export default function AuthGuard({ children }) {
-  const { isAuthenticated, loading } = useAuth()
+export default function AuthGuard({ children, fallback = <Login /> }) {
+  const { isAdmin, loading } = useAuth()
 
   if (loading) {
     return (
@@ -24,9 +24,7 @@ export default function AuthGuard({ children }) {
     )
   }
 
-  if (!isAuthenticated) {
-    return <Login />
-  }
+  if (!isAdmin) return fallback
 
   return children
 }

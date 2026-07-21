@@ -17,6 +17,46 @@ if (
 
 export const supabase = createClient(supabaseUrl, supabaseKey)
 
+const PLAYER_FIELDS = 'id, name'
+const TOURNAMENT_FIELDS = 'id, name, tournament_date, status, description, created_at, updated_at'
+const EVENT_FIELDS = 'id, tournament_id, event_type, max_participants, status, draw_structure, created_at, updated_at'
+const PARTICIPANT_FIELDS = `
+  id,
+  event_id,
+  player_id,
+  partner_id,
+  seed_position,
+  status,
+  registered_at,
+  points_earned,
+  player:players!event_participants_player_id_fkey(${PLAYER_FIELDS}),
+  partner:players!event_participants_partner_id_fkey(${PLAYER_FIELDS})
+`
+const MATCH_FIELDS = `
+  id,
+  event_id,
+  player1_id,
+  player2_id,
+  player1_partner_id,
+  player2_partner_id,
+  round_name,
+  bracket_type,
+  match_number,
+  bracket_position,
+  status,
+  score,
+  winner_id,
+  scheduled_time,
+  completed_at,
+  created_at,
+  player1:players!matches_player1_id_fkey(${PLAYER_FIELDS}),
+  player2:players!matches_player2_id_fkey(${PLAYER_FIELDS}),
+  player1_partner:players!matches_player1_partner_id_fkey(${PLAYER_FIELDS}),
+  player2_partner:players!matches_player2_partner_id_fkey(${PLAYER_FIELDS}),
+  winner:players!matches_winner_id_fkey(${PLAYER_FIELDS})
+`
+const RESULT_FIELDS = 'id, match_id, player_id, points_earned, result_type, created_at'
+
 /** CD / rank points for the rolling leaderboard */
 export function computeRankMetrics(totalPoints, eventsPlayed) {
   const cd = eventsPlayed > 0 ? 1.5 + eventsPlayed * 0.5 : 0
@@ -26,81 +66,24 @@ export function computeRankMetrics(totalPoints, eventsPlayed) {
 
 export { compareLeaderboardEntries }
 
-function cutoffDateISO(withinMonths = 12) {
-  const cutoff = new Date()
-  cutoff.setMonth(cutoff.getMonth() - withinMonths)
-  return cutoff.toISOString().slice(0, 10)
-}
-
-// Rolling rankings from event_participants.points_earned (last 12 months by default)
+// Rolling rankings are calculated server-side and return public, non-PII fields only.
 export const rankingsApi = {
   async getRollingLeaderboard(eventType = 'singles', withinMonths = 12) {
-    const cutoffStr = cutoffDateISO(withinMonths)
-
-    const { data, error } = await supabase
-      .from('event_participants')
-      .select(`
-        player_id,
-        points_earned,
-        player:players!event_participants_player_id_fkey(id, name, email),
-        event:events!event_participants_event_id_fkey(
-          id,
-          event_type,
-          status,
-          tournament:tournaments!events_tournament_id_fkey(tournament_date)
-        )
-      `)
-
-    if (error) throw error
-
-    const aggregated = new Map()
-    for (const row of data || []) {
-      // Only completed events count toward leaderboards and seeding
-      if (!row.event || row.event.status !== 'completed') continue
-      if (row.event.event_type !== eventType) continue
-      const tournamentDate = row.event.tournament?.tournament_date
-      if (!tournamentDate || tournamentDate < cutoffStr) continue
-      const player = row.player
-      if (!player) continue
-
-      const current = aggregated.get(player.id) || {
-        id: player.id,
-        name: player.name,
-        email: player.email,
-        totalPoints: 0,
-        eventsPlayed: 0
-      }
-      current.totalPoints += Number(row.points_earned) || 0
-      current.eventsPlayed += 1
-      aggregated.set(player.id, current)
-    }
-
-    const list = [...aggregated.values()].map((player) => {
-      const { cd, rankPoints } = computeRankMetrics(player.totalPoints, player.eventsPlayed)
-      return {
-        ...player,
-        cd,
-        rankPoints,
-        isRanked: player.eventsPlayed > 0
-      }
+    const { data, error } = await supabase.rpc('get_public_leaderboard', {
+      requested_event_type: eventType,
+      within_months: withinMonths
     })
-
-    list.sort(
-      (a, b) =>
-        b.rankPoints - a.rankPoints ||
-        b.totalPoints - a.totalPoints ||
-        a.name.localeCompare(b.name)
-    )
-
-    let currentRank = 1
-    for (let i = 0; i < list.length; i++) {
-      if (i > 0 && list[i].rankPoints < list[i - 1].rankPoints) {
-        currentRank = i + 1
-      }
-      list[i].rank = currentRank
-    }
-
-    return list
+    if (error) throw error
+    return (data || []).map((player) => ({
+      id: player.id,
+      name: player.name,
+      totalPoints: Number(player.total_points) || 0,
+      eventsPlayed: Number(player.events_played) || 0,
+      cd: Number(player.cd) || 0,
+      rankPoints: Number(player.rank_points) || 0,
+      rank: Number(player.rank) || null,
+      isRanked: Number(player.events_played) > 0
+    }))
   },
 
   async getMap(eventType = 'singles', withinMonths = 12) {
@@ -115,7 +98,7 @@ export const playersApi = {
   async getAll() {
     const { data, error } = await supabase
       .from('players')
-      .select('*')
+      .select(PLAYER_FIELDS)
       .order('name')
     
     if (error) throw error
@@ -150,7 +133,7 @@ export const playersApi = {
   async getById(id) {
     const { data, error } = await supabase
       .from('players')
-      .select('*')
+      .select(PLAYER_FIELDS)
       .eq('id', id)
       .single()
     
@@ -163,7 +146,7 @@ export const playersApi = {
     const { data, error } = await supabase
       .from('players')
       .insert([player])
-      .select()
+      .select(PLAYER_FIELDS)
       .single()
     
     if (error) throw error
@@ -176,7 +159,7 @@ export const playersApi = {
       .from('players')
       .update(updates)
       .eq('id', id)
-      .select()
+      .select(PLAYER_FIELDS)
       .single()
     
     if (error) throw error
@@ -201,9 +184,22 @@ export const tournamentsApi = {
     const { data, error } = await supabase
       .from('tournaments')
       .select(`
-        *,
+        id,
+        name,
+        tournament_date,
+        status,
+        description,
+        created_at,
+        updated_at,
         events (
-          *,
+          id,
+          tournament_id,
+          event_type,
+          max_participants,
+          status,
+          draw_structure,
+          created_at,
+          updated_at,
           event_participants (
             id,
             player_id
@@ -216,19 +212,34 @@ export const tournamentsApi = {
     return data
   },
 
+  async getPublic() {
+    const { data, error } = await supabase.rpc('get_public_tournaments')
+    if (error) throw error
+    return data || []
+  },
+
   // Get tournament by ID with events
   async getById(id) {
     const { data, error } = await supabase
       .from('tournaments')
       .select(`
-        *,
+        id,
+        name,
+        tournament_date,
+        status,
+        description,
+        created_at,
+        updated_at,
         events (
-          *,
-          event_participants (
-            *,
-            player:players!event_participants_player_id_fkey(*),
-            partner:players!event_participants_partner_id_fkey(*)
-          )
+          id,
+          tournament_id,
+          event_type,
+          max_participants,
+          status,
+          draw_structure,
+          created_at,
+          updated_at,
+          event_participants (${PARTICIPANT_FIELDS})
         )
       `)
       .eq('id', id)
@@ -243,7 +254,7 @@ export const tournamentsApi = {
     const { data, error } = await supabase
       .from('tournaments')
       .insert([tournament])
-      .select()
+      .select(TOURNAMENT_FIELDS)
       .single()
     
     if (error) throw error
@@ -256,7 +267,7 @@ export const tournamentsApi = {
       .from('tournaments')
       .update(updates)
       .eq('id', id)
-      .select()
+      .select(TOURNAMENT_FIELDS)
       .single()
     
     if (error) throw error
@@ -281,13 +292,16 @@ export const eventsApi = {
     const { data, error } = await supabase
       .from('events')
       .select(`
-        *,
-        tournament:tournaments(*),
-        event_participants (
-          *,
-          player:players!event_participants_player_id_fkey(*),
-          partner:players!event_participants_partner_id_fkey(*)
-        )
+        id,
+        tournament_id,
+        event_type,
+        max_participants,
+        status,
+        draw_structure,
+        created_at,
+        updated_at,
+        tournament:tournaments(id, name, tournament_date, status, description),
+        event_participants (${PARTICIPANT_FIELDS})
       `)
       .eq('tournament_id', tournamentId)
     
@@ -300,21 +314,17 @@ export const eventsApi = {
     const { data, error } = await supabase
       .from('events')
       .select(`
-        *,
-        tournament:tournaments(*),
-        event_participants (
-          *,
-          player:players!event_participants_player_id_fkey(*),
-          partner:players!event_participants_partner_id_fkey(*)
-        ),
-        matches (
-          *,
-          player1:players!matches_player1_id_fkey(*),
-          player2:players!matches_player2_id_fkey(*),
-          player1_partner:players!matches_player1_partner_id_fkey(*),
-          player2_partner:players!matches_player2_partner_id_fkey(*),
-          winner:players!matches_winner_id_fkey(*)
-        )
+        id,
+        tournament_id,
+        event_type,
+        max_participants,
+        status,
+        draw_structure,
+        created_at,
+        updated_at,
+        tournament:tournaments(id, name, tournament_date, status, description),
+        event_participants (${PARTICIPANT_FIELDS}),
+        matches (${MATCH_FIELDS})
       `)
       .eq('id', id)
       .single()
@@ -328,7 +338,7 @@ export const eventsApi = {
     const { data, error } = await supabase
       .from('events')
       .insert([event])
-      .select()
+      .select(EVENT_FIELDS)
       .single()
     
     if (error) throw error
@@ -341,7 +351,7 @@ export const eventsApi = {
       .from('events')
       .update(updates)
       .eq('id', id)
-      .select()
+      .select(EVENT_FIELDS)
       .single()
     
     if (error) throw error
@@ -371,7 +381,7 @@ export const participantsApi = {
         partner_id: partnerId,
         seed_position: seedPosition
       }])
-      .select()
+      .select(PARTICIPANT_FIELDS)
       .single()
     
     if (error) throw error
@@ -382,11 +392,7 @@ export const participantsApi = {
   async getByEvent(eventId) {
     const { data, error } = await supabase
       .from('event_participants')
-      .select(`
-        *,
-        player:players!event_participants_player_id_fkey(*),
-        partner:players!event_participants_partner_id_fkey(*)
-      `)
+      .select(PARTICIPANT_FIELDS)
       .eq('event_id', eventId)
       .order('seed_position', { ascending: true, nullsLast: true })
     
@@ -400,7 +406,7 @@ export const participantsApi = {
       .from('event_participants')
       .update({ status })
       .eq('id', id)
-      .select()
+      .select(PARTICIPANT_FIELDS)
       .single()
     
     if (error) throw error
@@ -413,7 +419,7 @@ export const participantsApi = {
       .from('event_participants')
       .update(updates)
       .eq('id', id)
-      .select()
+      .select(PARTICIPANT_FIELDS)
       .single()
 
     if (error) throw error
@@ -437,14 +443,7 @@ export const matchesApi = {
   async getByEvent(eventId) {
     const { data, error } = await supabase
       .from('matches')
-      .select(`
-        *,
-        player1:players!matches_player1_id_fkey(*),
-        player2:players!matches_player2_id_fkey(*),
-        player1_partner:players!matches_player1_partner_id_fkey(*),
-        player2_partner:players!matches_player2_partner_id_fkey(*),
-        winner:players!matches_winner_id_fkey(*)
-      `)
+      .select(MATCH_FIELDS)
       .eq('event_id', eventId)
       .order('match_number')
     
@@ -457,7 +456,7 @@ export const matchesApi = {
     const { data, error } = await supabase
       .from('matches')
       .insert([match])
-      .select()
+      .select(MATCH_FIELDS)
       .single()
     
     if (error) throw error
@@ -466,28 +465,14 @@ export const matchesApi = {
 
   // Update match (general update method)
   async update(id, updates) {
-    console.log('matchesApi.update called with:', { id, updates })
-    
     const { data, error } = await supabase
       .from('matches')
       .update(updates)
       .eq('id', id)
-      .select(`
-        *,
-        player1:players!matches_player1_id_fkey(*),
-        player2:players!matches_player2_id_fkey(*),
-        player1_partner:players!matches_player1_partner_id_fkey(*),
-        player2_partner:players!matches_player2_partner_id_fkey(*),
-        winner:players!matches_winner_id_fkey(*)
-      `)
+      .select(MATCH_FIELDS)
       .single()
     
-    if (error) {
-      console.error('Supabase update error:', error)
-      throw error
-    }
-    
-    console.log('matchesApi.update successful:', data)
+    if (error) throw error
     return data
   },
 
@@ -502,7 +487,7 @@ export const matchesApi = {
         completed_at: new Date().toISOString()
       })
       .eq('id', id)
-      .select()
+      .select(MATCH_FIELDS)
       .single()
     
     if (error) throw error
@@ -555,7 +540,7 @@ export const resultsApi = {
         points_earned: result.points_earned,
         result_type: result.result_type
       })))
-      .select()
+      .select(RESULT_FIELDS)
     
     if (error) throw error
     return data
@@ -566,12 +551,21 @@ export const resultsApi = {
     const { data, error } = await supabase
       .from('match_results')
       .select(`
-        *,
+        ${RESULT_FIELDS},
         match:matches(
-          *,
+          id,
+          event_id,
+          round_name,
+          bracket_type,
+          status,
+          score,
+          winner_id,
+          completed_at,
           event:events(
-            *,
-            tournament:tournaments(*)
+            id,
+            event_type,
+            status,
+            tournament:tournaments(id, name, tournament_date, status)
           )
         )
       `)
@@ -587,9 +581,9 @@ export const resultsApi = {
     const { data, error } = await supabase
       .from('match_results')
       .select(`
-        *,
-        player:players(*),
-        match:matches(*)
+        ${RESULT_FIELDS},
+        player:players(${PLAYER_FIELDS}),
+        match:matches(id, event_id, round_name, bracket_type, status, score, winner_id, completed_at)
       `)
       .eq('match.event_id', eventId)
     

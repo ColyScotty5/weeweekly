@@ -15,7 +15,6 @@ import {
 } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import { useAuth } from '../contexts/AuthContext'
-import Avatar from './Avatar'
 
 export default function Profile({ onClose }) {
   const { user, updateProfile } = useAuth()
@@ -28,8 +27,6 @@ export default function Profile({ onClose }) {
     newEmail: '',
     confirmEmail: ''
   })
-  const [avatar, setAvatar] = useState(user?.avatar || null)
-  const [avatarFile, setAvatarFile] = useState(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
@@ -49,29 +46,6 @@ export default function Profile({ onClose }) {
     clearMessages()
   }
 
-  const handleAvatarChange = (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Avatar file size must be less than 5MB')
-      return
-    }
-
-    if (!file.type.startsWith('image/')) {
-      setError('Please select a valid image file')
-      return
-    }
-
-    setAvatarFile(file)
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      setAvatar(event.target.result)
-    }
-    reader.readAsDataURL(file)
-    clearMessages()
-  }
-
   const handlePasswordChange = async (e) => {
     e.preventDefault()
     setError('')
@@ -85,8 +59,8 @@ export default function Profile({ onClose }) {
       setError('New password is required')
       return
     }
-    if (formData.newPassword.length < 6) {
-      setError('New password must be at least 6 characters long')
+    if (formData.newPassword.length < 12) {
+      setError('New password must be at least 12 characters long')
       return
     }
     if (formData.newPassword !== formData.confirmPassword) {
@@ -107,7 +81,7 @@ export default function Profile({ onClose }) {
       setSuccess('Password updated successfully!')
       setFormData({ currentPassword: 'REMOVED', newPassword: 'REMOVED', confirmPassword: 'REMOVED' })
     } catch (err) {
-      setError(err.message)
+      setError(err.message || 'Password could not be updated')
     } finally {
       setLoading(false)
     }
@@ -134,42 +108,10 @@ export default function Profile({ onClose }) {
     setLoading(true)
     try {
       await updateProfile({ newEmail: emailData.newEmail })
-      setSuccess('Email address updated successfully!')
+      setSuccess('Check both email addresses to confirm the change.')
       setEmailData({ newEmail: '', confirmEmail: '' })
     } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleAvatarSave = async () => {
-    if (!avatarFile && !avatar) return
-    setLoading(true)
-    setError('')
-    setSuccess('')
-    try {
-      await updateProfile({ avatar })
-      setSuccess('Avatar updated successfully!')
-      setAvatarFile(null)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const removeAvatar = async () => {
-    setLoading(true)
-    setError('')
-    setSuccess('')
-    try {
-      await updateProfile({ avatar: null })
-      setAvatar(null)
-      setAvatarFile(null)
-      setSuccess('Avatar removed successfully!')
-    } catch (err) {
-      setError(err.message)
+      setError(err.message || 'Email address could not be updated')
     } finally {
       setLoading(false)
     }
@@ -201,7 +143,7 @@ export default function Profile({ onClose }) {
               <strong>Email:</strong> {user?.email}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              <strong>Role:</strong> {user?.role}
+              <strong>Role:</strong> {user?.roleLabel}
             </Typography>
           </Paper>
 
@@ -230,51 +172,6 @@ export default function Profile({ onClose }) {
                 </Button>
               </Box>
             </Stack>
-          </Box>
-
-          <Divider />
-
-          <Box>
-            <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-              Profile Picture
-            </Typography>
-            <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
-              <Avatar src={avatar} alt="Profile Avatar" size={80} />
-              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                <Button variant="contained" component="label" disabled={loading}>
-                  Choose Image
-                  <input
-                    type="file"
-                    accept="image/*"
-                    hidden
-                    onChange={handleAvatarChange}
-                  />
-                </Button>
-                {avatar && avatarFile && (
-                  <Button
-                    variant="contained"
-                    color="secondary"
-                    onClick={handleAvatarSave}
-                    disabled={loading}
-                  >
-                    Save
-                  </Button>
-                )}
-                {avatar && (
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    onClick={removeAvatar}
-                    disabled={loading}
-                  >
-                    Remove
-                  </Button>
-                )}
-              </Stack>
-            </Stack>
-            <Typography variant="caption" color="text.secondary">
-              Supported formats: JPG, PNG, GIF. Max size: 5MB
-            </Typography>
           </Box>
 
           <Divider />

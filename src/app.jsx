@@ -24,9 +24,11 @@ import { theme } from './theme'
 import TournamentManager from './components/TournamentManager'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import AuthGuard from './components/AuthGuard'
+import Login from './components/Login'
 import Profile from './components/Profile'
 import Avatar from './components/Avatar'
 import Leaderboard from './components/Leaderboard'
+import PublicTournaments from './components/PublicTournaments'
 
 function ThemeToggle() {
   const { mode, setMode, systemMode } = useColorScheme()
@@ -50,6 +52,7 @@ function AppContent() {
   const [showProfile, setShowProfile] = useState(false)
   const [showLeaderboard, setShowLeaderboard] = useState(null)
   const [confirmLogout, setConfirmLogout] = useState(false)
+  const [showAdmin, setShowAdmin] = useState(false)
   const { user, logout } = useAuth()
 
   return (
@@ -92,7 +95,7 @@ function AppContent() {
                   }
                   sx={{ textTransform: 'none' }}
                 >
-                  {user.name} ({user.role})
+                  {user.name} ({user.roleLabel})
                 </Button>
                 <Button
                   color="inherit"
@@ -104,13 +107,33 @@ function AppContent() {
                 </Button>
               </>
             )}
+            {!user && (
+              <Button color="inherit" size="small" onClick={() => setShowAdmin(true)}>
+                Admin sign in
+              </Button>
+            )}
+            {user && (
+              <Button
+                color="inherit"
+                size="small"
+                onClick={() => setShowAdmin((current) => !current)}
+              >
+                {showAdmin ? 'Public view' : 'Manage tournaments'}
+              </Button>
+            )}
             <ThemeToggle />
           </Stack>
         </Toolbar>
       </AppBar>
 
       <Container maxWidth="xl" sx={{ py: 3 }}>
-        <TournamentManager />
+        {showAdmin ? (
+          <AuthGuard fallback={<Login onCancel={() => setShowAdmin(false)} />}>
+            <TournamentManager />
+          </AuthGuard>
+        ) : (
+          <PublicTournaments />
+        )}
       </Container>
 
       {showProfile && <Profile onClose={() => setShowProfile(false)} />}
@@ -134,6 +157,7 @@ function AppContent() {
             variant="contained"
             onClick={() => {
               setConfirmLogout(false)
+              setShowAdmin(false)
               logout()
             }}
           >
@@ -156,9 +180,7 @@ export default function App() {
     >
       <CssBaseline />
       <AuthProvider>
-        <AuthGuard>
-          <AppContent />
-        </AuthGuard>
+        <AppContent />
       </AuthProvider>
     </ThemeProvider>
   )

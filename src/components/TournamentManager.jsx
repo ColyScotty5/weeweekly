@@ -31,9 +31,10 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import CloseIcon from '@mui/icons-material/Close'
 import { tournamentsApi, eventsApi, playersApi, participantsApi, matchesApi, rankingsApi } from '../lib/supabase.js'
 import { generateSinglesDraw, generateDoublesDraw, generateMatches, POINTS_SYSTEM, syncNextRoundMatches, syncConsolationMatches, formatResultStatus, ODD_DOUBLES_REGISTRANTS_MESSAGE } from '../lib/tournamentUtils.js'
+import { reportError, userFacingError } from '../lib/errors.js'
 import TournamentBracket from './TournamentBracket.jsx'
 import Avatar from './Avatar.jsx'
-import { getUserAvatarByEmail } from '../contexts/AuthContext.jsx'
+import { useAuth } from '../contexts/AuthContext.jsx'
 
 function getLocalDateString() {
   const today = new Date()
@@ -68,6 +69,7 @@ function isSuccessMessage(message) {
 }
 
 export default function TournamentManager() {
+  const { isSuperAdmin } = useAuth()
   const [tournaments, setTournaments] = useState([])
   const [selectedTournament, setSelectedTournament] = useState(null)
   const [players, setPlayers] = useState([])
@@ -91,8 +93,8 @@ export default function TournamentManager() {
       const data = await tournamentsApi.getAll()
       setTournaments(data)
     } catch (error) {
-      console.error('Error loading tournaments:', error)
-      setMessage(`❌ Error loading tournaments: ${error.message}`)
+      reportError('Error loading tournaments', error)
+      setMessage(`❌ ${userFacingError('load tournaments')}`)
     }
   }
 
@@ -101,7 +103,7 @@ export default function TournamentManager() {
       const data = await playersApi.getAllWithRankings('singles')
       setPlayers(data)
     } catch (error) {
-      console.error('Error loading players:', error)
+      reportError('Error loading players', error)
     }
   }
 
@@ -132,8 +134,8 @@ export default function TournamentManager() {
       setShowCreateForm(false)
       loadTournaments()
     } catch (error) {
-      console.error('Error creating tournament:', error)
-      setMessage(`❌ Error creating tournament: ${error.message}`)
+      reportError('Error creating tournament', error)
+      setMessage(`❌ ${userFacingError('create the tournament')}`)
     } finally {
       setLoading(false)
     }
@@ -145,8 +147,8 @@ export default function TournamentManager() {
       const tournament = await tournamentsApi.getById(tournamentId)
       setSelectedTournament(tournament)
     } catch (error) {
-      console.error('Error loading tournament details:', error)
-      setMessage(`❌ Error loading tournament: ${error.message}`)
+      reportError('Error loading tournament details', error)
+      setMessage(`❌ ${userFacingError('load the tournament')}`)
     } finally {
       setLoading(false)
     }
@@ -154,6 +156,10 @@ export default function TournamentManager() {
 
   const handleDeleteTournament = (tournament, event) => {
     event.stopPropagation()
+    if (!isSuperAdmin) {
+      setMessage('❌ Super Administrator access is required to delete tournaments.')
+      return
+    }
     setTournamentToDelete(tournament)
     setShowDeleteModal(true)
   }
@@ -170,7 +176,7 @@ export default function TournamentManager() {
   }
 
   const confirmDeleteTournament = async () => {
-    if (!tournamentToDelete) return
+    if (!tournamentToDelete || !isSuperAdmin) return
 
     setLoading(true)
     try {
@@ -185,8 +191,8 @@ export default function TournamentManager() {
       setShowDeleteModal(false)
       setTournamentToDelete(null)
     } catch (error) {
-      console.error('Error deleting tournament:', error)
-      setMessage(`❌ Error deleting tournament: ${error.message}`)
+      reportError('Error deleting tournament', error)
+      setMessage(`❌ ${userFacingError('delete the tournament')}`)
     } finally {
       setLoading(false)
     }
@@ -233,8 +239,8 @@ export default function TournamentManager() {
         loadTournamentDetails(tournamentToEdit.id)
       }
     } catch (error) {
-      console.error('Error updating tournament:', error)
-      setMessage(`❌ Error updating tournament: ${error.message}`)
+      reportError('Error updating tournament', error)
+      setMessage(`❌ ${userFacingError('update the tournament')}`)
     } finally {
       setLoading(false)
     }
@@ -259,8 +265,8 @@ export default function TournamentManager() {
         loadTournamentDetails(selectedTournament.id)
       }
     } catch (error) {
-      console.error('Error updating event:', error)
-      setMessage(`❌ Error updating event: ${error.message}`)
+      reportError('Error updating event', error)
+      setMessage(`❌ ${userFacingError('update the event')}`)
     } finally {
       setLoading(false)
     }
@@ -334,15 +340,17 @@ export default function TournamentManager() {
                       >
                         <EditIcon fontSize="small" />
                       </IconButton>
-                      <IconButton
-                        edge="end"
-                        size="small"
-                        color="error"
-                        aria-label={`Delete ${tournament.name}`}
-                        onClick={(e) => handleDeleteTournament(tournament, e)}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
+                      {isSuperAdmin && (
+                        <IconButton
+                          edge="end"
+                          size="small"
+                          color="error"
+                          aria-label={`Delete ${tournament.name}`}
+                          onClick={(e) => handleDeleteTournament(tournament, e)}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      )}
                     </Stack>
                   }
                   sx={{
@@ -452,6 +460,7 @@ export default function TournamentManager() {
               }}
               onPlayersChange={loadPlayers}
               onEditEvent={handleEditEvent}
+              isSuperAdmin={isSuperAdmin}
             />
           ) : (
             <Typography color="text.secondary" sx={{ textAlign: 'center', mt: 6 }}>
@@ -582,7 +591,14 @@ function CreateTournamentModal({ open, onSubmit, onCancel, loading }) {
   )
 }
 
-function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onEditEvent }) {
+function TournamentDetails({
+  tournament,
+  players,
+  onUpdate,
+  onPlayersChange,
+  onEditEvent,
+  isSuperAdmin
+}) {
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [registrationMode, setRegistrationMode] = useState(false)
   const [bracketView, setBracketView] = useState(null)
@@ -603,7 +619,7 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
       .then(([singles, doubles]) => {
         if (!cancelled) setRankingMaps({ singles, doubles })
       })
-      .catch((error) => console.error('Error loading rankings:', error))
+      .catch((error) => reportError('Error loading rankings', error))
     return () => { cancelled = true }
   }, [tournament?.id])
 
@@ -613,7 +629,7 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
       setEventMatches(prev => ({ ...prev, [eventId]: matches }))
       return matches
     } catch (error) {
-      console.error('Error loading event matches:', error)
+      reportError('Error loading event matches', error)
       return []
     }
   }
@@ -714,11 +730,11 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
       await loadEventMatches(eventId)
       onUpdate()
     } catch (error) {
-      console.error('Error generating draw:', error)
+      reportError('Error generating draw', error)
       if (error.message === ODD_DOUBLES_REGISTRANTS_MESSAGE) {
         setDrawErrorModal(ODD_DOUBLES_REGISTRANTS_MESSAGE)
       } else {
-        setMessage(`❌ Error generating draw: ${error.message}`)
+        setMessage(`❌ ${userFacingError('generate the draw')}`)
       }
     } finally {
       setLoading(false)
@@ -726,7 +742,7 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
   }
 
   const resetDraw = async () => {
-    if (!eventToReset) return
+    if (!eventToReset || !isSuperAdmin) return
 
     setLoading(true)
     try {
@@ -760,8 +776,8 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
       setMessage('✅ Draw reset. You can update registration and generate a new draw.')
       onUpdate()
     } catch (error) {
-      console.error('Error resetting draw:', error)
-      setMessage(`❌ Error resetting draw: ${error.message}`)
+      reportError('Error resetting draw', error)
+      setMessage(`❌ ${userFacingError('reset the draw')}`)
     } finally {
       setLoading(false)
     }
@@ -802,8 +818,8 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
       setMessage('✅ Event completed successfully! Points saved for all participants.')
       onUpdate()
     } catch (error) {
-      console.error('Error completing event:', error)
-      setMessage(`❌ Error completing event: ${error.message}`)
+      reportError('Error completing event', error)
+      setMessage(`❌ ${userFacingError('complete the event')}`)
     } finally {
       setLoading(false)
     }
@@ -982,7 +998,7 @@ function TournamentDetails({ tournament, players, onUpdate, onPlayersChange, onE
               </>
             )}
 
-            {(event.status === 'draw_created' || event.status === 'in_progress') && (
+            {isSuperAdmin && (event.status === 'draw_created' || event.status === 'in_progress') && (
               <Button
                 size="small"
                 variant="outlined"
@@ -1142,7 +1158,6 @@ function EventDetails({ event, playersById = new Map() }) {
               <Paper key={participant.id} variant="outlined" className="participant-card" sx={{ p: 1 }}>
                 <Box className="participant-header">
                   <Avatar
-                    src={getUserAvatarByEmail(participant.player?.email)}
                     alt={participant.player?.name}
                     size={40}
                   />
@@ -1169,7 +1184,6 @@ function EventDetails({ event, playersById = new Map() }) {
                   <Box className="participant-partner" sx={{ mt: 1, pt: 1, borderTop: 1, borderColor: 'divider' }}>
                     <Box className="partner-header" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Avatar
-                        src={getUserAvatarByEmail(participant.partner?.email)}
                         alt={participant.partner?.name}
                         size={32}
                       />
@@ -1219,7 +1233,7 @@ function RegistrationManager({ event, players, onClose, onUpdate, onPlayersChang
       .then((data) => {
         if (!cancelled) setRankedPlayers(data)
       })
-      .catch((error) => console.error('Error loading ranked players:', error))
+      .catch((error) => reportError('Error loading ranked players', error))
     return () => { cancelled = true }
   }, [event.event_type])
 
@@ -1233,8 +1247,8 @@ function RegistrationManager({ event, players, onClose, onUpdate, onPlayersChang
       setSelectedPlayers([])
       onUpdate()
     } catch (error) {
-      console.error('Error registering players:', error)
-      setMessage(`❌ Error registering players: ${error.message}`)
+      reportError('Error registering players', error)
+      setMessage(`❌ ${userFacingError('register players')}`)
     } finally {
       setLoading(false)
     }
@@ -1341,14 +1355,12 @@ function RegistrationManager({ event, players, onClose, onUpdate, onPlayersChang
 
 function AddPlayerModal({ open, onClose, onCreated }) {
   const [fullName, setFullName] = useState('')
-  const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
     if (open) {
       setFullName('')
-      setEmail('')
       setError('')
     }
   }, [open])
@@ -1356,35 +1368,24 @@ function AddPlayerModal({ open, onClose, onCreated }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     const name = fullName.trim()
-    const trimmedEmail = email.trim()
 
     if (!name) {
       setError('Full name is required')
       return
     }
 
-    if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
-      setError('Enter a valid email address')
-      return
-    }
-
     setLoading(true)
     setError('')
     try {
-      const created = await playersApi.create({
-        name,
-        email: trimmedEmail || null
-      })
+      const created = await playersApi.create({ name })
       await onCreated(created)
       setFullName('')
-      setEmail('')
     } catch (err) {
-      console.error('Error creating player:', err)
-      const msg = String(err?.message || '')
-      if (msg.toLowerCase().includes('duplicate') || msg.includes('unique') || err?.code === '23505') {
-        setError('A player with that email already exists')
+      reportError('Error creating player', err)
+      if (err?.code === '23505') {
+        setError('A player with that name already exists')
       } else {
-        setError(err.message || 'Failed to create player')
+        setError(userFacingError('create the player'))
       }
     } finally {
       setLoading(false)
@@ -1420,16 +1421,6 @@ function AddPlayerModal({ open, onClose, onCreated }) {
               disabled={loading}
               required
               autoFocus
-              size="small"
-              fullWidth
-            />
-            <TextField
-              label="Email (optional)"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="REMOVED_EMAIL"
-              disabled={loading}
               size="small"
               fullWidth
             />

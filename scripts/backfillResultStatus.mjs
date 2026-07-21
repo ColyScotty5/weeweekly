@@ -1,35 +1,30 @@
 /**
  * Backfill event_participants.status from points_earned using POINTS_SYSTEM.
- * Usage: node scripts/backfillResultStatus.mjs
+ * Usage: node scripts/backfillResultStatus.mjs --apply
  *
- * Requires schema_migration_result_status.sql to have been run first.
+ * Requires the versioned Supabase migrations, SUPABASE_URL,
+ * SUPABASE_SERVICE_ROLE_KEY, and OPERATOR_CONFIRM_PROJECT_REF.
  */
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { createClient } from '@supabase/supabase-js'
 import { resultStatusFromPoints } from '../src/lib/tournamentUtils.js'
 
-function loadEnv(path = '.env') {
-  const text = readFileSync(resolve(path), 'utf8')
-  for (const line of text.split('\n')) {
-    const trimmed = line.trim()
-    if (!trimmed || trimmed.startsWith('#')) continue
-    const i = trimmed.indexOf('=')
-    if (i === -1) continue
-    const key = trimmed.slice(0, i).trim()
-    const value = trimmed.slice(i + 1).trim()
-    if (!process.env[key]) process.env[key] = value
-  }
+const supabaseUrl = process.env.SUPABASE_URL
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+const confirmedProjectRef = process.env.OPERATOR_CONFIRM_PROJECT_REF
+
+if (!process.argv.includes('--apply')) {
+  console.error('Refusing to write without the explicit --apply flag.')
+  process.exit(1)
 }
 
-loadEnv()
+if (!supabaseUrl || !supabaseKey || !confirmedProjectRef) {
+  console.error('Missing required operator environment configuration.')
+  process.exit(1)
+}
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL
-const supabaseKey =
-  process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY
-
-if (!supabaseUrl || !supabaseKey) {
-  console.error('Missing Supabase URL or key in .env')
+const actualProjectRef = new URL(supabaseUrl).hostname.split('.')[0]
+if (actualProjectRef !== confirmedProjectRef) {
+  console.error('The confirmed project reference does not match SUPABASE_URL.')
   process.exit(1)
 }
 

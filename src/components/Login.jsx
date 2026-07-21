@@ -18,10 +18,10 @@ import { useAuth } from '../contexts/AuthContext'
 // Drop images here (served from /public):
 //   public/login-bg-desktop.jpg  — wide / landscape
 //   public/login-bg-mobile.jpg   — tall / portrait
-const LOGIN_BG_DESKTOP = '/login-bg-desktop.jpg'
-const LOGIN_BG_MOBILE = '/login-bg-mobile.jpg'
+const LOGIN_BG_DESKTOP = `${import.meta.env.BASE_URL}login-bg-desktop.jpg`
+const LOGIN_BG_MOBILE = `${import.meta.env.BASE_URL}login-bg-mobile.jpg`
 
-export default function Login() {
+export default function Login({ onCancel }) {
   const [formData, setFormData] = useState({
     email: '',
     password: 'REMOVED'
@@ -159,6 +159,11 @@ export default function Login() {
               >
                 {loading ? 'Signing in...' : 'Sign In'}
               </Button>
+              {onCancel && (
+                <Button type="button" color="inherit" onClick={onCancel} disabled={loading}>
+                  Back to public view
+                </Button>
+              )}
             </Stack>
           </Box>
         </CardContent>
