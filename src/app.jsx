@@ -12,12 +12,16 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Tooltip
+  Tooltip,
+  Divider,
+  Menu,
+  MenuItem
 } from '@mui/material'
 import SportsTennisIcon from '@mui/icons-material/SportsTennis'
 import DarkModeIcon from '@mui/icons-material/DarkMode'
 import LightModeIcon from '@mui/icons-material/LightMode'
 import LogoutIcon from '@mui/icons-material/Logout'
+import MenuIcon from '@mui/icons-material/Menu'
 import { ThemeProvider, useColorScheme } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
 import { theme } from './theme'
@@ -54,23 +58,72 @@ function AppContent() {
   const [confirmLogout, setConfirmLogout] = useState(false)
   const [showAdmin, setShowAdmin] = useState(false)
   const [showLogin, setShowLogin] = useState(false)
+  const [mobileMenuAnchor, setMobileMenuAnchor] = useState(null)
   const { user, logout, loading } = useAuth()
+
+  const showPublicSection = (sectionId) => {
+    setMobileMenuAnchor(null)
+    setShowAdmin(false)
+    window.requestAnimationFrame(() => {
+      document.getElementById(sectionId)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      })
+    })
+  }
+
+  const openLeaderboard = (type) => {
+    setMobileMenuAnchor(null)
+    setShowLeaderboard(type)
+  }
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <AppBar position="sticky" color="default" enableColorOnDark>
-        <Toolbar sx={{ gap: 2, flexWrap: 'wrap', py: 1 }}>
-          <Typography variant="h6" component="h1" sx={{ fontWeight: 700, mr: 1 }}>
+        <Toolbar sx={{ gap: { xs: 0.5, md: 2 }, py: 1 }}>
+          <Typography
+            variant="h6"
+            component="button"
+            type="button"
+            onClick={() => showPublicSection('top')}
+            sx={{
+              flexGrow: { xs: 1, md: 0 },
+              mr: 1,
+              p: 0,
+              border: 0,
+              bgcolor: 'transparent',
+              color: 'inherit',
+              font: 'inherit',
+              fontWeight: 700,
+              cursor: 'pointer',
+              textAlign: 'left',
+              '&:focus-visible': {
+                outline: '3px solid',
+                outlineColor: 'primary.main',
+                outlineOffset: 4,
+                borderRadius: 1
+              }
+            }}
+          >
             The Legendary Wee Weekly!
           </Typography>
 
-          <Stack direction="row" spacing={1} sx={{ flexGrow: 1 }}>
+          <Stack
+            component="nav"
+            aria-label="Primary navigation"
+            direction="row"
+            spacing={0.5}
+            sx={{ display: { xs: 'none', md: 'flex' }, flexGrow: 1 }}
+          >
+            <Button color="inherit" size="small" onClick={() => showPublicSection('how-it-works')}>
+              About
+            </Button>
             <Button
               variant="contained"
               color="primary"
               size="small"
               startIcon={<SportsTennisIcon />}
-              onClick={() => setShowLeaderboard('singles')}
+              onClick={() => openLeaderboard('singles')}
             >
               Singles
             </Button>
@@ -79,13 +132,21 @@ function AppContent() {
               color="secondary"
               size="small"
               startIcon={<SportsTennisIcon />}
-              onClick={() => setShowLeaderboard('doubles')}
+              onClick={() => openLeaderboard('doubles')}
             >
               Doubles
             </Button>
+            <Button color="inherit" size="small" onClick={() => showPublicSection('schedule')}>
+              Schedule
+            </Button>
           </Stack>
 
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            sx={{ display: { xs: 'none', md: 'flex' } }}
+          >
             {user && (
               <>
                 <Button
@@ -122,10 +183,72 @@ function AppContent() {
                 {showAdmin ? 'Public view' : 'Manage tournaments'}
               </Button>
             )}
-            <ThemeToggle />
           </Stack>
+          <ThemeToggle />
+          <IconButton
+            color="inherit"
+            aria-label="Open navigation menu"
+            aria-controls={mobileMenuAnchor ? 'mobile-navigation-menu' : undefined}
+            aria-haspopup="true"
+            aria-expanded={mobileMenuAnchor ? 'true' : undefined}
+            onClick={(event) => setMobileMenuAnchor(event.currentTarget)}
+            sx={{ display: { xs: 'inline-flex', md: 'none' } }}
+          >
+            <MenuIcon />
+          </IconButton>
         </Toolbar>
       </AppBar>
+
+      <Menu
+        id="mobile-navigation-menu"
+        anchorEl={mobileMenuAnchor}
+        open={Boolean(mobileMenuAnchor)}
+        onClose={() => setMobileMenuAnchor(null)}
+        MenuListProps={{ 'aria-label': 'Mobile navigation' }}
+      >
+        <MenuItem onClick={() => showPublicSection('how-it-works')}>About</MenuItem>
+        <MenuItem onClick={() => openLeaderboard('singles')}>Singles rankings</MenuItem>
+        <MenuItem onClick={() => openLeaderboard('doubles')}>Doubles rankings</MenuItem>
+        <MenuItem onClick={() => showPublicSection('schedule')}>Season schedule</MenuItem>
+        <Divider />
+        {user ? (
+          <>
+            <MenuItem
+              onClick={() => {
+                setMobileMenuAnchor(null)
+                setShowProfile(true)
+              }}
+            >
+              Edit profile
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                setMobileMenuAnchor(null)
+                setShowAdmin((current) => !current)
+              }}
+            >
+              {showAdmin ? 'Public view' : 'Manage tournaments'}
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                setMobileMenuAnchor(null)
+                setConfirmLogout(true)
+              }}
+            >
+              Sign out
+            </MenuItem>
+          </>
+        ) : (
+          <MenuItem
+            onClick={() => {
+              setMobileMenuAnchor(null)
+              setShowLogin(true)
+            }}
+          >
+            Administrator sign in
+          </MenuItem>
+        )}
+      </Menu>
 
       <Container maxWidth="xl" sx={{ py: 3 }}>
         {showAdmin ? (
@@ -166,8 +289,12 @@ function AppContent() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={confirmLogout} onClose={() => setConfirmLogout(false)}>
-        <DialogTitle>Sign out?</DialogTitle>
+      <Dialog
+        open={confirmLogout}
+        onClose={() => setConfirmLogout(false)}
+        aria-labelledby="sign-out-title"
+      >
+        <DialogTitle id="sign-out-title">Sign out?</DialogTitle>
         <DialogContent>
           Are you sure you want to sign out?
         </DialogContent>

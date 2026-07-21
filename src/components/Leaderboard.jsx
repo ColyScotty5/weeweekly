@@ -52,11 +52,17 @@ export default function Leaderboard({ type, onClose }) {
   }
 
   return (
-    <Dialog open onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ pr: 6 }}>
+    <Dialog
+      open
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      aria-labelledby={`${type}-leaderboard-title`}
+    >
+      <DialogTitle id={`${type}-leaderboard-title`} sx={{ pr: 6 }}>
         🏆 {type === 'singles' ? 'Singles' : 'Doubles'} Leaderboard
         <IconButton
-          aria-label="Close"
+          aria-label={`Close ${type} leaderboard`}
           onClick={onClose}
           sx={{ position: 'absolute', right: 8, top: 8 }}
         >

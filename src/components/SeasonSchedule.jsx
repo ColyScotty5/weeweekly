@@ -96,7 +96,19 @@ export default function SeasonSchedule() {
           </Typography>
         </Stack>
 
-        <TableContainer component={Paper} variant="outlined">
+        <TableContainer
+          component={Paper}
+          variant="outlined"
+          tabIndex={0}
+          aria-label="Scrollable 2026 season schedule"
+          sx={{
+            '&:focus-visible': {
+              outline: '3px solid',
+              outlineColor: 'primary.main',
+              outlineOffset: 2
+            }
+          }}
+        >
           <Table aria-label="2026 Wee Weekly season schedule" sx={{ minWidth: 760 }}>
             <TableHead>
               <TableRow>

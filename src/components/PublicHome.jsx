@@ -53,7 +53,7 @@ const leaderboardOptions = [
 
 export default function PublicHome({ onOpenLeaderboard }) {
   return (
-    <Box>
+    <Box id="top">
       <Box
         component="section"
         aria-labelledby="wee-weekly-heading"

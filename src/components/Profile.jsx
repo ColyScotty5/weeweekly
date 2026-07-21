@@ -118,11 +118,11 @@ export default function Profile({ onClose }) {
   }
 
   return (
-    <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ pr: 6 }}>
+    <Dialog open onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="profile-title">
+      <DialogTitle id="profile-title" sx={{ pr: 6 }}>
         Profile Settings
         <IconButton
-          aria-label="Close"
+          aria-label="Close profile settings"
           onClick={onClose}
           sx={{ position: 'absolute', right: 8, top: 8 }}
         >
