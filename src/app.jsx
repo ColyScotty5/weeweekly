@@ -28,7 +28,7 @@ import Login from './components/Login'
 import Profile from './components/Profile'
 import Avatar from './components/Avatar'
 import Leaderboard from './components/Leaderboard'
-import PublicTournaments from './components/PublicTournaments'
+import PublicHome from './components/PublicHome'
 
 function ThemeToggle() {
   const { mode, setMode, systemMode } = useColorScheme()
@@ -132,7 +132,7 @@ function AppContent() {
             <TournamentManager />
           </AuthGuard>
         ) : (
-          <PublicTournaments />
+          <PublicHome />
         )}
       </Container>
 
