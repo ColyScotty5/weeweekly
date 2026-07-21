@@ -7,26 +7,10 @@ import {
   Chip,
   CircularProgress,
   Grid,
-  Link,
   Stack,
   Typography
 } from '@mui/material'
 import { tournamentsApi } from '../lib/supabase'
-
-const WEE_WEEKLY_SCHEDULE = [
-  { date: '2026-07-25', type: 'Doubles' },
-  { date: '2026-08-01', type: 'No Wee Weekly', note: 'Dave Piers Open' },
-  { date: '2026-08-08', type: 'Doubles' },
-  { date: '2026-08-15', type: 'Singles' },
-  { date: '2026-08-22', type: 'Doubles' },
-  { date: '2026-08-29', type: 'Singles' },
-  { date: '2026-09-05', type: 'Doubles' },
-  { date: '2026-09-12', type: 'Singles' },
-  { date: '2026-09-19', type: 'No Wee Weekly', note: "St. George's Masters" },
-  { date: '2026-09-26', type: 'No Wee Weekly', note: "St. George's Closed" },
-  { date: '2026-10-03', type: 'Doubles' },
-  { date: '2026-10-10', type: 'Singles' }
-]
 
 const formatDate = (value) =>
   new Intl.DateTimeFormat(undefined, {
@@ -45,11 +29,6 @@ export default function PublicTournaments() {
   const [tournaments, setTournaments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const upcomingEvents = WEE_WEEKLY_SCHEDULE.filter(
-    (event) => new Date(`${event.date}T00:00:00`) >= today
-  )
 
   useEffect(() => {
     let active = true
@@ -72,62 +51,7 @@ export default function PublicTournaments() {
   }, [])
 
   return (
-    <Stack spacing={6}>
-      <Stack spacing={3}>
-        <Box>
-          <Typography variant="h4" component="h2" fontWeight={700}>
-            Upcoming events
-          </Typography>
-          <Typography color="text.secondary">
-            The remaining published dates in the 2026 Wee Weekly schedule.
-          </Typography>
-        </Box>
-
-        {upcomingEvents.length === 0 ? (
-          <Alert severity="info">There are no remaining events in the published schedule.</Alert>
-        ) : (
-          <Grid container spacing={2}>
-            {upcomingEvents.map((event) => (
-              <Grid key={event.date} size={{ xs: 12, sm: 6, md: 4 }}>
-                <Card variant="outlined" sx={{ height: '100%' }}>
-                  <CardContent>
-                    <Stack spacing={1}>
-                      <Stack direction="row" justifyContent="space-between" gap={2}>
-                        <Typography variant="h6" component="h3" fontWeight={700}>
-                          {event.type}
-                        </Typography>
-                        <Chip
-                          size="small"
-                          color={event.type === 'No Wee Weekly' ? 'default' : 'primary'}
-                          label={formatDate(event.date)}
-                        />
-                      </Stack>
-                      {event.note && (
-                        <Typography variant="body2" color="text.secondary">
-                          Club tournament: {event.note}
-                        </Typography>
-                      )}
-                    </Stack>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-        )}
-
-        <Typography variant="body2" color="text.secondary">
-          Schedule sourced from the{' '}
-          <Link
-            href="https://www.stgeorgestennisclub.com/wee-weekly/"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            St. George&apos;s Tennis Club Wee Weekly page
-          </Link>
-          .
-        </Typography>
-      </Stack>
-
+    <Stack spacing={3}>
       <Box>
         <Typography variant="h4" component="h2" fontWeight={700}>
           Tournament results

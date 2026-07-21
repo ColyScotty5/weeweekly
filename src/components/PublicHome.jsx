@@ -13,7 +13,7 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import GroupsIcon from '@mui/icons-material/Groups'
 import SportsTennisIcon from '@mui/icons-material/SportsTennis'
-import PublicTournaments from './PublicTournaments'
+import SeasonSchedule from './SeasonSchedule'
 
 const HOME_BG_DESKTOP = `${import.meta.env.BASE_URL}login-bg-desktop.jpg`
 const HOME_BG_MOBILE = `${import.meta.env.BASE_URL}login-bg-mobile.jpg`
@@ -226,11 +226,7 @@ export default function PublicHome({ onOpenLeaderboard }) {
         </Container>
       </Box>
 
-      <Box component="section" aria-label="Club tournaments" sx={{ pb: { xs: 6, md: 9 } }}>
-        <Container maxWidth="xl">
-          <PublicTournaments />
-        </Container>
-      </Box>
+      <SeasonSchedule />
     </Box>
   )
 }
