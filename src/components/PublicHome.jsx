@@ -10,6 +10,7 @@ import {
   Typography
 } from '@mui/material'
 import AccessTimeIcon from '@mui/icons-material/AccessTime'
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import GroupsIcon from '@mui/icons-material/Groups'
 import SportsTennisIcon from '@mui/icons-material/SportsTennis'
 import PublicTournaments from './PublicTournaments'
@@ -35,7 +36,22 @@ const details = [
   }
 ]
 
-export default function PublicHome() {
+const leaderboardOptions = [
+  {
+    type: 'singles',
+    title: 'Singles leaderboard',
+    body: 'See the current rolling singles standings from completed events in the last 12 months.',
+    color: 'primary'
+  },
+  {
+    type: 'doubles',
+    title: 'Doubles leaderboard',
+    body: 'See the current rolling doubles standings from completed events in the last 12 months.',
+    color: 'secondary'
+  }
+]
+
+export default function PublicHome({ onOpenLeaderboard }) {
   return (
     <Box>
       <Box
@@ -153,6 +169,60 @@ export default function PublicHome() {
               .
             </Typography>
           </Stack>
+        </Container>
+      </Box>
+
+      <Box
+        id="rankings"
+        component="section"
+        aria-labelledby="rankings-heading"
+        sx={{
+          py: { xs: 6, md: 8 },
+          px: { xs: 2, sm: 3 },
+          bgcolor: 'action.hover',
+          borderRadius: { xs: 0, md: 3 },
+          scrollMarginTop: 96
+        }}
+      >
+        <Container maxWidth="md">
+          <Stack spacing={1.5} alignItems="center" sx={{ mb: 4, textAlign: 'center' }}>
+            <EmojiEventsIcon color="primary" sx={{ fontSize: 64 }} />
+            <Typography id="rankings-heading" variant="h4" component="h2" fontWeight={750}>
+              Player rankings
+            </Typography>
+            <Typography color="text.secondary">
+              Follow the latest singles and doubles standings. Rankings are available
+              publicly—no sign-in required.
+            </Typography>
+          </Stack>
+
+          <Grid container spacing={2.5}>
+            {leaderboardOptions.map((option) => (
+              <Grid key={option.type} size={{ xs: 12, sm: 6 }}>
+                <Card variant="outlined" sx={{ height: '100%' }}>
+                  <CardContent sx={{ p: 3, height: '100%' }}>
+                    <Stack spacing={2} alignItems="flex-start" sx={{ height: '100%' }}>
+                      <SportsTennisIcon color={option.color} fontSize="large" />
+                      <Typography variant="h5" component="h3" fontWeight={700}>
+                        {option.title}
+                      </Typography>
+                      <Typography color="text.secondary" sx={{ flexGrow: 1 }}>
+                        {option.body}
+                      </Typography>
+                      <Button
+                        variant="contained"
+                        color={option.color}
+                        onClick={() => onOpenLeaderboard(option.type)}
+                        startIcon={<EmojiEventsIcon />}
+                      >
+                        View {option.type} rankings
+                      </Button>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
         </Container>
       </Box>
 

@@ -132,7 +132,7 @@ function AppContent() {
             <TournamentManager />
           </AuthGuard>
         ) : (
-          <PublicHome />
+          <PublicHome onOpenLeaderboard={setShowLeaderboard} />
         )}
       </Container>
 
