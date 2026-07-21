@@ -53,7 +53,8 @@ function AppContent() {
   const [showLeaderboard, setShowLeaderboard] = useState(null)
   const [confirmLogout, setConfirmLogout] = useState(false)
   const [showAdmin, setShowAdmin] = useState(false)
-  const { user, logout } = useAuth()
+  const [showLogin, setShowLogin] = useState(false)
+  const { user, logout, loading } = useAuth()
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
@@ -108,7 +109,7 @@ function AppContent() {
               </>
             )}
             {!user && (
-              <Button color="inherit" size="small" onClick={() => setShowAdmin(true)}>
+              <Button color="inherit" size="small" onClick={() => setShowLogin(true)}>
                 Admin sign in
               </Button>
             )}
@@ -128,7 +129,9 @@ function AppContent() {
 
       <Container maxWidth="xl" sx={{ py: 3 }}>
         {showAdmin ? (
-          <AuthGuard fallback={<Login onCancel={() => setShowAdmin(false)} />}>
+          <AuthGuard
+            fallback={<PublicHome onOpenLeaderboard={setShowLeaderboard} />}
+          >
             <TournamentManager />
           </AuthGuard>
         ) : (
@@ -144,6 +147,24 @@ function AppContent() {
           onClose={() => setShowLeaderboard(null)}
         />
       )}
+
+      <Dialog
+        open={showLogin}
+        onClose={() => {
+          if (!loading) setShowLogin(false)
+        }}
+        fullWidth
+        maxWidth="xs"
+        aria-labelledby="admin-sign-in-title"
+      >
+        <DialogTitle id="admin-sign-in-title">Administrator sign in</DialogTitle>
+        <DialogContent dividers>
+          <Login
+            onCancel={() => setShowLogin(false)}
+            onSuccess={() => setShowLogin(false)}
+          />
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={confirmLogout} onClose={() => setConfirmLogout(false)}>
         <DialogTitle>Sign out?</DialogTitle>
