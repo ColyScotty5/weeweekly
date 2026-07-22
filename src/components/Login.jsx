@@ -18,8 +18,10 @@ export default function Login({ onCancel, onSuccess }) {
     password: ''
   })
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const { login, loading } = useAuth()
+  const [requestingRecovery, setRequestingRecovery] = useState(false)
+  const { login, loading, requestPasswordRecovery } = useAuth()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -41,6 +43,28 @@ export default function Login({ onCancel, onSuccess }) {
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
     if (error) setError('')
+    if (success) setSuccess('')
+  }
+
+  const handlePasswordRecovery = async () => {
+    setError('')
+    setSuccess('')
+    if (!formData.email.trim()) {
+      setError('Enter your email address to request a recovery link')
+      return
+    }
+
+    setRequestingRecovery(true)
+    try {
+      await requestPasswordRecovery(formData.email)
+      setSuccess(
+        'If that email belongs to an account, a password recovery link has been sent.'
+      )
+    } catch (recoveryError) {
+      setError(recoveryError.message)
+    } finally {
+      setRequestingRecovery(false)
+    }
   }
 
   return (
@@ -84,6 +108,7 @@ export default function Login({ onCancel, onSuccess }) {
         />
 
         {error && <Alert severity="error">{error}</Alert>}
+        {success && <Alert severity="success">{success}</Alert>}
 
         <Button
           type="submit"
@@ -93,7 +118,15 @@ export default function Login({ onCancel, onSuccess }) {
           disabled={loading}
           fullWidth
         >
-          {loading ? 'Signing in...' : 'Sign In'}
+          {loading ? 'Signing in…' : 'Sign In'}
+        </Button>
+        <Button
+          type="button"
+          variant="text"
+          onClick={handlePasswordRecovery}
+          disabled={loading}
+        >
+          {requestingRecovery ? 'Sending recovery link…' : 'Forgot password?'}
         </Button>
         {onCancel && (
           <Button type="button" color="inherit" onClick={onCancel} disabled={loading}>

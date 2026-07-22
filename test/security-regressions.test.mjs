@@ -1,9 +1,22 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import test from 'node:test'
 import { compareLeaderboardEntries } from '../src/lib/tournamentUtils.js'
 import { WEE_WEEKLY_SCHEDULE_2026 } from '../src/data/weeWeeklySchedule.js'
+import { validateNewPassword } from '../src/lib/passwordPolicy.js'
+
+function readFilesRecursively(directoryUrl, extension) {
+  return readdirSync(directoryUrl, { withFileTypes: true }).flatMap((entry) => {
+    const entryUrl = new URL(entry.name, directoryUrl)
+    if (entry.isDirectory()) {
+      return readFilesRecursively(new URL(`${entry.name}/`, directoryUrl), extension)
+    }
+    return entry.name.endsWith(extension)
+      ? [{ path: entryUrl.pathname, source: readFileSync(entryUrl, 'utf8') }]
+      : []
+  })
+}
 
 test('repository static security checks pass', () => {
   const output = execFileSync(process.execPath, ['scripts/security-check.mjs'], {
@@ -87,4 +100,65 @@ test('administrator login opens in a dialog and closes after success', () => {
   assert.match(app, /onSuccess=\{\(\) => setShowLogin\(false\)\}/)
   assert.match(loginForm, /await login\(formData\.email, formData\.password\)/)
   assert.match(loginForm, /onSuccess\?\.\(\)/)
+})
+
+test('password recovery requires a new strong matching password', () => {
+  assert.equal(validateNewPassword('', ''), 'Enter a new password')
+  assert.match(validateNewPassword('too-short', 'too-short'), /at least 12 characters/)
+  assert.equal(
+    validateNewPassword('a-secure-new-password', 'different-password'),
+    'Passwords do not match'
+  )
+  assert.equal(
+    validateNewPassword('a-secure-new-password', 'a-secure-new-password'),
+    ''
+  )
+})
+
+test('Supabase recovery sessions must replace the password before admin access', () => {
+  const authContext = readFileSync(
+    new URL('../src/contexts/AuthContext.jsx', import.meta.url),
+    'utf8'
+  )
+  const recoveryDialog = readFileSync(
+    new URL('../src/components/PasswordRecovery.jsx', import.meta.url),
+    'utf8'
+  )
+  const loginForm = readFileSync(
+    new URL('../src/components/Login.jsx', import.meta.url),
+    'utf8'
+  )
+
+  assert.match(authContext, /event === 'PASSWORD_RECOVERY'/)
+  assert.match(authContext, /passwordRecoveryRequired/)
+  assert.match(authContext, /supabase\.auth\.resetPasswordForEmail\(email\.trim\(\)/)
+  assert.match(authContext, /window\.location\.origin/)
+  assert.match(authContext, /supabase\.auth\.updateUser\(\{\s*password: newPassword/s)
+  assert.match(authContext, /supabase\.auth\.signOut\(\{ scope: 'global' \}\)/)
+  assert.match(authContext, /!passwordRecoveryRequired && user/)
+  assert.match(recoveryDialog, /await completePasswordRecovery\(password\)/)
+  assert.match(recoveryDialog, /autoComplete="new-password"/)
+  assert.match(loginForm, /await requestPasswordRecovery\(formData\.email\)/)
+  assert.match(loginForm, /If that email belongs to an account/)
+})
+
+test('frontend styling remains Material UI only', () => {
+  const sourceRoot = new URL('../src/', import.meta.url)
+  const jsxFiles = readFilesRecursively(sourceRoot, '.jsx')
+  const javascriptFiles = readFilesRecursively(sourceRoot, '.js')
+  const sourceFiles = [...jsxFiles, ...javascriptFiles]
+
+  assert.equal(existsSync(new URL('../src/app.css', import.meta.url)), false)
+  assert.equal(existsSync(new URL('../src/index.css', import.meta.url)), false)
+
+  for (const { path, source } of sourceFiles) {
+    assert.doesNotMatch(source, /\bclassName\s*=/, `${path} must not use visual CSS classes`)
+    assert.doesNotMatch(source, /\bstyle\s*=/, `${path} must use MUI props or sx`)
+    assert.doesNotMatch(source, /\.Mui[A-Za-z-]*/, `${path} must not target generated MUI classes`)
+    assert.doesNotMatch(
+      source,
+      /import\s+['"]\.{1,2}\/[^'"]+\.css['"]/,
+      `${path} must not import a local stylesheet`
+    )
+  }
 })

@@ -1,9 +1,33 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { validateNewPassword } from '../lib/passwordPolicy'
 
 const AuthContext = createContext()
 const GENERIC_LOGIN_ERROR = 'Unable to sign in with those credentials'
 const ADMIN_ACCESS_ERROR = 'This account does not have administrator access'
+const RECOVERY_ERROR = 'Password recovery could not be completed. Request a new recovery link.'
+const RECOVERY_REQUEST_ERROR = 'A recovery email could not be sent. Please try again.'
+const RECOVERY_STORAGE_KEY = 'weeweekly_password_recovery'
+
+function readRecoveryState() {
+  try {
+    return sessionStorage.getItem(RECOVERY_STORAGE_KEY) === 'required'
+  } catch {
+    return false
+  }
+}
+
+function persistRecoveryState(required) {
+  try {
+    if (required) {
+      sessionStorage.setItem(RECOVERY_STORAGE_KEY, 'required')
+    } else {
+      sessionStorage.removeItem(RECOVERY_STORAGE_KEY)
+    }
+  } catch {
+    // The in-memory state still protects the current page when storage is unavailable.
+  }
+}
 
 const roleLabel = (role) => (role === 'super_admin' ? 'Super Administrator' : 'Administrator')
 
@@ -41,6 +65,7 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [passwordRecoveryRequired, setPasswordRecoveryRequired] = useState(readRecoveryState)
 
   useEffect(() => {
     let active = true
@@ -61,7 +86,14 @@ export const AuthProvider = ({ children }) => {
 
     const {
       data: { subscription }
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        persistRecoveryState(true)
+        setPasswordRecoveryRequired(true)
+      } else if (event === 'SIGNED_OUT') {
+        persistRecoveryState(false)
+        setPasswordRecoveryRequired(false)
+      }
       setTimeout(() => syncSession(session), 0)
     })
 
@@ -98,6 +130,52 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     await supabase.auth.signOut()
     setUser(null)
+  }
+
+  const requestPasswordRecovery = async (email) => {
+    if (!email?.trim()) throw new Error('Enter your email address')
+
+    setLoading(true)
+    try {
+      const redirectTo = new URL(import.meta.env.BASE_URL, window.location.origin).toString()
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo
+      })
+      if (error) throw new Error(RECOVERY_REQUEST_ERROR)
+    } catch {
+      throw new Error(RECOVERY_REQUEST_ERROR)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const completePasswordRecovery = async (newPassword) => {
+    if (!passwordRecoveryRequired) throw new Error(RECOVERY_ERROR)
+
+    const validationError = validateNewPassword(newPassword, newPassword)
+    if (validationError) throw new Error(validationError)
+
+    setLoading(true)
+    try {
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword
+      })
+      if (updateError) throw new Error(RECOVERY_ERROR)
+
+      const { error: globalSignOutError } = await supabase.auth.signOut({ scope: 'global' })
+      if (globalSignOutError) {
+        const { error: localSignOutError } = await supabase.auth.signOut({ scope: 'local' })
+        if (localSignOutError) {
+          throw new Error('Password updated, but the recovery session could not be closed.')
+        }
+      }
+
+      persistRecoveryState(false)
+      setPasswordRecoveryRequired(false)
+      setUser(null)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const updateProfile = async (updates) => {
@@ -145,11 +223,16 @@ export const AuthProvider = ({ children }) => {
     user,
     login,
     logout,
+    requestPasswordRecovery,
+    completePasswordRecovery,
     updateProfile,
     loading,
-    isAuthenticated: Boolean(user),
-    isAdmin: Boolean(user && ['admin', 'super_admin'].includes(user.role)),
-    isSuperAdmin: user?.role === 'super_admin'
+    passwordRecoveryRequired,
+    isAuthenticated: Boolean(!passwordRecoveryRequired && user),
+    isAdmin: Boolean(
+      !passwordRecoveryRequired && user && ['admin', 'super_admin'].includes(user.role)
+    ),
+    isSuperAdmin: !passwordRecoveryRequired && user?.role === 'super_admin'
   }
 
   return (

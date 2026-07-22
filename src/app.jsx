@@ -33,6 +33,7 @@ import Profile from './components/Profile'
 import Avatar from './components/Avatar'
 import Leaderboard from './components/Leaderboard'
 import PublicHome from './components/PublicHome'
+import PasswordRecovery from './components/PasswordRecovery'
 
 function ThemeToggle() {
   const { mode, setMode, systemMode } = useColorScheme()
@@ -81,32 +82,21 @@ function AppContent() {
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <AppBar position="sticky" color="default" enableColorOnDark>
         <Toolbar sx={{ gap: { xs: 0.5, md: 2 }, py: 1 }}>
-          <Typography
-            variant="h6"
-            component="button"
-            type="button"
+          <Button
+            variant="text"
+            color="inherit"
             onClick={() => showPublicSection('top')}
             sx={{
               flexGrow: { xs: 1, md: 0 },
               mr: 1,
-              p: 0,
-              border: 0,
-              bgcolor: 'transparent',
-              color: 'inherit',
-              font: 'inherit',
+              justifyContent: 'flex-start',
+              typography: 'h6',
               fontWeight: 700,
-              cursor: 'pointer',
-              textAlign: 'left',
-              '&:focus-visible': {
-                outline: '3px solid',
-                outlineColor: 'primary.main',
-                outlineOffset: 4,
-                borderRadius: 1
-              }
+              textAlign: 'left'
             }}
           >
             The Legendary Wee Weekly!
-          </Typography>
+          </Button>
 
           <Stack
             component="nav"
@@ -261,6 +251,8 @@ function AppContent() {
           <PublicHome onOpenLeaderboard={setShowLeaderboard} />
         )}
       </Container>
+
+      <PasswordRecovery />
 
       {showProfile && <Profile onClose={() => setShowProfile(false)} />}
 

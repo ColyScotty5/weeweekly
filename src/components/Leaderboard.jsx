@@ -19,6 +19,7 @@ import {
   Stack
 } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import { rankingsApi } from '../lib/supabase.js'
 import Avatar from './Avatar.jsx'
 
@@ -45,9 +46,9 @@ export default function Leaderboard({ type, onClose }) {
   }
 
   const rankDisplay = (rank) => {
-    if (rank === 1) return '🥇'
-    if (rank === 2) return '🥈'
-    if (rank === 3) return '🥉'
+    if (rank === 1) return <EmojiEventsIcon color="warning" aria-hidden="true" />
+    if (rank === 2) return <EmojiEventsIcon sx={{ color: 'text.secondary' }} aria-hidden="true" />
+    if (rank === 3) return <EmojiEventsIcon color="secondary" aria-hidden="true" />
     return rank
   }
 
@@ -60,7 +61,10 @@ export default function Leaderboard({ type, onClose }) {
       aria-labelledby={`${type}-leaderboard-title`}
     >
       <DialogTitle id={`${type}-leaderboard-title`} sx={{ pr: 6 }}>
-        🏆 {type === 'singles' ? 'Singles' : 'Doubles'} Leaderboard
+        <Stack direction="row" spacing={1} alignItems="center">
+          <EmojiEventsIcon color="primary" aria-hidden="true" />
+          <span>{type === 'singles' ? 'Singles' : 'Doubles'} Leaderboard</span>
+        </Stack>
         <IconButton
           aria-label={`Close ${type} leaderboard`}
           onClick={onClose}
@@ -105,7 +109,11 @@ export default function Leaderboard({ type, onClose }) {
               <TableBody>
                 {players.map((player) => (
                   <TableRow key={player.id} hover>
-                    <TableCell align="center" sx={{ fontWeight: 700, fontSize: '1.1rem' }}>
+                    <TableCell
+                      align="center"
+                      aria-label={`Rank ${player.rank}`}
+                      sx={{ fontWeight: 700, fontSize: '1.1rem' }}
+                    >
                       {rankDisplay(player.rank)}
                     </TableCell>
                     <TableCell>

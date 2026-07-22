@@ -88,7 +88,7 @@ export default function SeasonSchedule() {
     >
       <Container maxWidth="lg">
         <Stack spacing={1.5} sx={{ mb: 4, textAlign: 'center' }}>
-          <Typography id="schedule-heading" variant="h4" component="h2" fontWeight={750}>
+          <Typography id="schedule-heading" variant="h4" component="h2">
             2026 season schedule
           </Typography>
           <Typography color="text.secondary">
@@ -101,13 +101,13 @@ export default function SeasonSchedule() {
           variant="outlined"
           tabIndex={0}
           aria-label="Scrollable 2026 season schedule"
-          sx={{
+          sx={(theme) => ({
             '&:focus-visible': {
-              outline: '3px solid',
+              outline: `${theme.focusRing.width}px solid`,
               outlineColor: 'primary.main',
-              outlineOffset: 2
+              outlineOffset: theme.focusRing.offset
             }
-          }}
+          })}
         >
           <Table aria-label="2026 Wee Weekly season schedule" sx={{ minWidth: 760 }}>
             <TableHead>

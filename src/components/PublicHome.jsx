@@ -9,6 +9,7 @@ import {
   Stack,
   Typography
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import AccessTimeIcon from '@mui/icons-material/AccessTime'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import GroupsIcon from '@mui/icons-material/Groups'
@@ -57,21 +58,21 @@ export default function PublicHome({ onOpenLeaderboard }) {
       <Box
         component="section"
         aria-labelledby="wee-weekly-heading"
-        sx={{
+        sx={(theme) => ({
           minHeight: { xs: 460, md: 520 },
           display: 'flex',
           alignItems: 'center',
           position: 'relative',
           color: 'common.white',
-          backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.58), rgba(0, 0, 0, 0.48)), url(${HOME_BG_MOBILE})`,
+          backgroundImage: `linear-gradient(${alpha(theme.palette.common.black, 0.58)}, ${alpha(theme.palette.common.black, 0.48)}), url(${HOME_BG_MOBILE})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           borderRadius: { xs: 0, md: 3 },
           overflow: 'hidden',
-          '@media (min-width: 768px)': {
-            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.58), rgba(0, 0, 0, 0.42)), url(${HOME_BG_DESKTOP})`
+          [theme.breakpoints.up('md')]: {
+            backgroundImage: `linear-gradient(${alpha(theme.palette.common.black, 0.58)}, ${alpha(theme.palette.common.black, 0.42)}), url(${HOME_BG_DESKTOP})`
           }
-        }}
+        })}
       >
         <Container maxWidth="md" sx={{ py: { xs: 7, md: 10 }, textAlign: 'center' }}>
           <Stack spacing={2.5} alignItems="center">
@@ -79,7 +80,7 @@ export default function PublicHome({ onOpenLeaderboard }) {
               id="wee-weekly-heading"
               variant="h2"
               component="h1"
-              fontWeight={800}
+              fontWeight={700}
               sx={{ fontSize: { xs: '2.4rem', sm: '3.4rem', md: '4rem' } }}
             >
               The Legendary Wee Weekly
@@ -87,7 +88,11 @@ export default function PublicHome({ onOpenLeaderboard }) {
             <Typography
               variant="h6"
               component="p"
-              sx={{ maxWidth: 720, color: 'rgba(255, 255, 255, 0.92)', lineHeight: 1.55 }}
+              sx={(theme) => ({
+                maxWidth: 720,
+                color: alpha(theme.palette.common.white, 0.92),
+                lineHeight: 1.55
+              })}
             >
               A weekly, drop-in tennis tournament for St. George&apos;s members of every
               playing level.
@@ -117,7 +122,7 @@ export default function PublicHome({ onOpenLeaderboard }) {
             spacing={1.5}
             sx={{ maxWidth: 760, mx: 'auto', mb: 4, textAlign: 'center' }}
           >
-            <Typography id="how-it-works-heading" variant="h4" component="h2" fontWeight={750}>
+            <Typography id="how-it-works-heading" variant="h4" component="h2">
               How the Wee Weekly works
             </Typography>
             <Typography color="text.secondary">
@@ -187,7 +192,7 @@ export default function PublicHome({ onOpenLeaderboard }) {
         <Container maxWidth="md">
           <Stack spacing={1.5} alignItems="center" sx={{ mb: 4, textAlign: 'center' }}>
             <EmojiEventsIcon color="primary" sx={{ fontSize: 64 }} />
-            <Typography id="rankings-heading" variant="h4" component="h2" fontWeight={750}>
+            <Typography id="rankings-heading" variant="h4" component="h2">
               Player rankings
             </Typography>
             <Typography color="text.secondary">

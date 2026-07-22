@@ -5,14 +5,12 @@ export default function Avatar({
   src,
   alt = 'Avatar',
   size = 32,
-  sx = {},
-  className = ''
+  sx = {}
 }) {
   return (
     <MuiAvatar
       src={src || undefined}
       alt={alt}
-      className={className}
       sx={{
         width: size,
         height: size,

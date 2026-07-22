@@ -11,14 +11,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html')
-      },
-      output: {
-        assetFileNames: (assetInfo) => {
-          if (assetInfo.fileName === 'app.css') {
-            return 'assets/app.css'
-          }
-          return 'assets/[name]-[hash][extname]'
-        }
       }
     }
   }

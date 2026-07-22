@@ -29,6 +29,9 @@ import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import CloseIcon from '@mui/icons-material/Close'
+import BlockIcon from '@mui/icons-material/Block'
+import ReportProblemIcon from '@mui/icons-material/ReportProblem'
+import { alpha } from '@mui/material/styles'
 import { tournamentsApi, eventsApi, playersApi, participantsApi, matchesApi, rankingsApi } from '../lib/supabase.js'
 import { generateSinglesDraw, generateDoublesDraw, generateMatches, POINTS_SYSTEM, syncNextRoundMatches, syncConsolationMatches, formatResultStatus, ODD_DOUBLES_REGISTRANTS_MESSAGE } from '../lib/tournamentUtils.js'
 import { reportError, userFacingError } from '../lib/errors.js'
@@ -60,21 +63,13 @@ function formatStatusLabel(status) {
   return status.replace(/_/g, ' ')
 }
 
-function stripMessagePrefix(message) {
-  return message.replace(/^[✅❌]\s*/, '')
-}
-
-function isSuccessMessage(message) {
-  return message.includes('✅')
-}
-
 export default function TournamentManager() {
   const { isSuperAdmin } = useAuth()
   const [tournaments, setTournaments] = useState([])
   const [selectedTournament, setSelectedTournament] = useState(null)
   const [players, setPlayers] = useState([])
   const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState('')
+  const [message, setMessage] = useState(null)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [tournamentToDelete, setTournamentToDelete] = useState(null)
@@ -94,7 +89,7 @@ export default function TournamentManager() {
       setTournaments(data)
     } catch (error) {
       reportError('Error loading tournaments', error)
-      setMessage(`❌ ${userFacingError('load tournaments')}`)
+      setMessage({ severity: 'error', text: userFacingError('load tournaments') })
     }
   }
 
@@ -130,12 +125,12 @@ export default function TournamentManager() {
         status: 'registration'
       })
 
-      setMessage('✅ Tournament created successfully!')
+      setMessage({ severity: 'success', text: 'Tournament created successfully!' })
       setShowCreateForm(false)
       loadTournaments()
     } catch (error) {
       reportError('Error creating tournament', error)
-      setMessage(`❌ ${userFacingError('create the tournament')}`)
+      setMessage({ severity: 'error', text: userFacingError('create the tournament') })
     } finally {
       setLoading(false)
     }
@@ -148,7 +143,7 @@ export default function TournamentManager() {
       setSelectedTournament(tournament)
     } catch (error) {
       reportError('Error loading tournament details', error)
-      setMessage(`❌ ${userFacingError('load the tournament')}`)
+      setMessage({ severity: 'error', text: userFacingError('load the tournament') })
     } finally {
       setLoading(false)
     }
@@ -157,7 +152,10 @@ export default function TournamentManager() {
   const handleDeleteTournament = (tournament, event) => {
     event.stopPropagation()
     if (!isSuperAdmin) {
-      setMessage('❌ Super Administrator access is required to delete tournaments.')
+      setMessage({
+        severity: 'error',
+        text: 'Super Administrator access is required to delete tournaments.'
+      })
       return
     }
     setTournamentToDelete(tournament)
@@ -181,7 +179,7 @@ export default function TournamentManager() {
     setLoading(true)
     try {
       await tournamentsApi.delete(tournamentToDelete.id)
-      setMessage('✅ Tournament deleted successfully!')
+      setMessage({ severity: 'success', text: 'Tournament deleted successfully!' })
 
       if (selectedTournament?.id === tournamentToDelete.id) {
         setSelectedTournament(null)
@@ -192,7 +190,7 @@ export default function TournamentManager() {
       setTournamentToDelete(null)
     } catch (error) {
       reportError('Error deleting tournament', error)
-      setMessage(`❌ ${userFacingError('delete the tournament')}`)
+      setMessage({ severity: 'error', text: userFacingError('delete the tournament') })
     } finally {
       setLoading(false)
     }
@@ -230,7 +228,7 @@ export default function TournamentManager() {
         })
       }
 
-      setMessage('✅ Tournament updated successfully!')
+      setMessage({ severity: 'success', text: 'Tournament updated successfully!' })
       setShowEditModal(false)
       setTournamentToEdit(null)
       loadTournaments()
@@ -240,7 +238,7 @@ export default function TournamentManager() {
       }
     } catch (error) {
       reportError('Error updating tournament', error)
-      setMessage(`❌ ${userFacingError('update the tournament')}`)
+      setMessage({ severity: 'error', text: userFacingError('update the tournament') })
     } finally {
       setLoading(false)
     }
@@ -256,7 +254,7 @@ export default function TournamentManager() {
         status: eventData.status
       })
 
-      setMessage('✅ Event updated successfully!')
+      setMessage({ severity: 'success', text: 'Event updated successfully!' })
       setShowEditEventModal(false)
       setEventToEdit(null)
       loadTournaments()
@@ -266,7 +264,7 @@ export default function TournamentManager() {
       }
     } catch (error) {
       reportError('Error updating event', error)
-      setMessage(`❌ ${userFacingError('update the event')}`)
+      setMessage({ severity: 'error', text: userFacingError('update the event') })
     } finally {
       setLoading(false)
     }
@@ -288,16 +286,16 @@ export default function TournamentManager() {
       <Snackbar
         open={Boolean(message)}
         autoHideDuration={5000}
-        onClose={() => setMessage('')}
+        onClose={() => setMessage(null)}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
         <Alert
-          onClose={() => setMessage('')}
-          severity={isSuccessMessage(message) ? 'success' : 'error'}
+          onClose={() => setMessage(null)}
+          severity={message?.severity || 'error'}
           variant="filled"
           sx={{ width: '100%' }}
         >
-          {stripMessagePrefix(message)}
+          {message?.text}
         </Alert>
       </Snackbar>
 
@@ -337,6 +335,7 @@ export default function TournamentManager() {
                         size="small"
                         aria-label={`Edit ${tournament.name}`}
                         onClick={(e) => handleEditTournament(tournament, e)}
+                        sx={{ color: isCompleted ? 'common.white' : 'inherit' }}
                       >
                         <EditIcon fontSize="small" />
                       </IconButton>
@@ -347,6 +346,7 @@ export default function TournamentManager() {
                           color="error"
                           aria-label={`Delete ${tournament.name}`}
                           onClick={(e) => handleDeleteTournament(tournament, e)}
+                          sx={{ color: isCompleted ? 'common.white' : 'error.main' }}
                         >
                           <DeleteIcon fontSize="small" />
                         </IconButton>
@@ -367,26 +367,14 @@ export default function TournamentManager() {
                       : isCompleted
                         ? 'success.dark'
                         : 'background.paper',
-                    color: isCompleted ? 'common.white' : 'inherit',
-                    '& .MuiIconButton-root': {
-                      color: isCompleted ? 'common.white' : 'inherit'
-                    },
-                    '& .MuiIconButton-root.MuiIconButton-colorError': {
-                      color: isCompleted ? 'common.white' : undefined
-                    }
+                    color: isCompleted ? 'common.white' : 'inherit'
                   }}
                 >
                   <ListItemButton
-                    selected={selected}
+                    selected={selected && !isCompleted}
                     onClick={() => loadTournamentDetails(tournament.id)}
                     sx={{
                       pr: 10,
-                      '&.Mui-selected': {
-                        bgcolor: isCompleted ? 'success.dark' : undefined
-                      },
-                      '&.Mui-selected:hover': {
-                        bgcolor: isCompleted ? 'success.main' : undefined
-                      },
                       '&:hover': {
                         bgcolor: isCompleted ? 'success.main' : undefined
                       }
@@ -401,14 +389,18 @@ export default function TournamentManager() {
                             component="span"
                             variant="body2"
                             fontWeight={600}
-                            sx={{ color: isCompleted ? '#fff' : 'text.primary' }}
+                            sx={{ color: isCompleted ? 'common.white' : 'text.primary' }}
                           >
                             {tournament.name}
                           </Typography>
                           <Typography
                             component="span"
                             variant="caption"
-                            sx={{ color: isCompleted ? 'rgba(255,255,255,0.85)' : 'text.secondary' }}
+                            sx={(theme) => ({
+                              color: isCompleted
+                                ? alpha(theme.palette.common.white, 0.85)
+                                : 'text.secondary'
+                            })}
                           >
                             ({totalParticipants} participant{totalParticipants !== 1 ? 's' : ''})
                           </Typography>
@@ -419,22 +411,24 @@ export default function TournamentManager() {
                           <Typography
                             component="span"
                             variant="caption"
-                            sx={{ color: isCompleted ? 'rgba(255,255,255,0.85)' : 'text.secondary' }}
+                            sx={(theme) => ({
+                              color: isCompleted
+                                ? alpha(theme.palette.common.white, 0.85)
+                                : 'text.secondary'
+                            })}
                           >
                             {new Date(tournament.tournament_date + 'T12:00:00').toLocaleDateString()}
                           </Typography>
                           {isCompleted && (
                             <Chip
                               size="small"
-                              icon={<CheckCircleIcon />}
+                              icon={<CheckCircleIcon sx={{ color: 'inherit' }} />}
                               label="Completed"
-                              sx={{
+                              sx={(theme) => ({
                                 height: 20,
-                                bgcolor: 'rgba(255,255,255,0.2)',
-                                color: '#fff',
-                                '& .MuiChip-icon': { color: '#fff' },
-                                '& .MuiChip-label': { px: 0.75, fontSize: '0.7rem' }
-                              }}
+                                bgcolor: alpha(theme.palette.common.white, 0.2),
+                                color: 'common.white'
+                              })}
                             />
                           )}
                         </Box>
@@ -604,7 +598,7 @@ function TournamentDetails({
   const [bracketView, setBracketView] = useState(null)
   const [bracketType, setBracketType] = useState('main')
   const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState('')
+  const [message, setMessage] = useState(null)
   const [drawErrorModal, setDrawErrorModal] = useState(null)
   const [eventToReset, setEventToReset] = useState(null)
   const [eventMatches, setEventMatches] = useState({})
@@ -647,7 +641,10 @@ function TournamentDetails({
       const participants = await participantsApi.getByEvent(eventId)
 
       if (participants.length < 4) {
-        setMessage('❌ Need at least 4 participants to generate a draw')
+        setMessage({
+          severity: 'error',
+          text: 'Need at least 4 participants to generate a draw'
+        })
         return
       }
 
@@ -672,9 +669,10 @@ function TournamentDetails({
       }
 
       if ((draw.seededCount || 0) === 0) {
-        setMessage(
-          '⚠️ Draw created, but no seeds were assigned. Nobody in this event has completed-event ranking points on the leaderboard yet.'
-        )
+        setMessage({
+          severity: 'warning',
+          text: 'Draw created, but no seeds were assigned. Nobody in this event has completed-event ranking points on the leaderboard yet.'
+        })
       }
 
       const seedUpdates = new Map()
@@ -722,9 +720,10 @@ function TournamentDetails({
       const byeNote = draw.numberOfByes > (draw.seededCount || 0)
         ? ` (${draw.numberOfByes - (draw.seededCount || 0)} bye(s) to unseeded players)`
         : ''
-      setMessage(
-        `✅ Draw generated successfully! ${draw.seededCount || 0} seed(s), ${draw.numberOfByes || 0} bye(s)${byeNote}`
-      )
+      setMessage({
+        severity: 'success',
+        text: `Draw generated successfully! ${draw.seededCount || 0} seed(s), ${draw.numberOfByes || 0} bye(s)${byeNote}`
+      })
       setRegistrationMode(false)
       setSelectedEvent((current) => (current === eventId ? null : current))
       await loadEventMatches(eventId)
@@ -734,7 +733,7 @@ function TournamentDetails({
       if (error.message === ODD_DOUBLES_REGISTRANTS_MESSAGE) {
         setDrawErrorModal(ODD_DOUBLES_REGISTRANTS_MESSAGE)
       } else {
-        setMessage(`❌ ${userFacingError('generate the draw')}`)
+        setMessage({ severity: 'error', text: userFacingError('generate the draw') })
       }
     } finally {
       setLoading(false)
@@ -773,11 +772,14 @@ function TournamentDetails({
       setSelectedEvent(eventId)
       setRegistrationMode(eventId)
       setEventToReset(null)
-      setMessage('✅ Draw reset. You can update registration and generate a new draw.')
+      setMessage({
+        severity: 'success',
+        text: 'Draw reset. You can update registration and generate a new draw.'
+      })
       onUpdate()
     } catch (error) {
       reportError('Error resetting draw', error)
-      setMessage(`❌ ${userFacingError('reset the draw')}`)
+      setMessage({ severity: 'error', text: userFacingError('reset the draw') })
     } finally {
       setLoading(false)
     }
@@ -789,7 +791,10 @@ function TournamentDetails({
       const matches = eventMatches[event.id] || []
 
       if (!canCompleteEvent(event.id)) {
-        setMessage('❌ Cannot complete event: some matches are still in progress')
+        setMessage({
+          severity: 'error',
+          text: 'Cannot complete event: some matches are still in progress'
+        })
         return
       }
 
@@ -815,11 +820,14 @@ function TournamentDetails({
 
       await eventsApi.update(event.id, { status: 'completed' })
 
-      setMessage('✅ Event completed successfully! Points saved for all participants.')
+      setMessage({
+        severity: 'success',
+        text: 'Event completed successfully! Points saved for all participants.'
+      })
       onUpdate()
     } catch (error) {
       reportError('Error completing event', error)
-      setMessage(`❌ ${userFacingError('complete the event')}`)
+      setMessage({ severity: 'error', text: userFacingError('complete the event') })
     } finally {
       setLoading(false)
     }
@@ -918,11 +926,11 @@ function TournamentDetails({
 
       {message && (
         <Alert
-          severity={isSuccessMessage(message) ? 'success' : 'error'}
-          onClose={() => setMessage('')}
+          severity={message.severity}
+          onClose={() => setMessage(null)}
           sx={{ mb: 2 }}
         >
-          {stripMessagePrefix(message)}
+          {message.text}
         </Alert>
       )}
 
@@ -1143,26 +1151,32 @@ function TournamentDetails({
 
 function EventDetails({ event, playersById = new Map() }) {
   return (
-    <Box className="event-details" sx={{ mt: 2 }}>
+    <Box sx={{ mt: 2 }}>
       <Typography variant="subtitle2" gutterBottom>
         Participants:
       </Typography>
       {event.event_participants?.length > 0 ? (
-        <Box className="participants-grid">
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+            gap: 1.25
+          }}
+        >
           {event.event_participants.map(participant => {
             const ranking = playersById.get(participant.player_id)
             const partnerRanking = participant.partner_id
               ? playersById.get(participant.partner_id)
               : null
             return (
-              <Paper key={participant.id} variant="outlined" className="participant-card" sx={{ p: 1 }}>
-                <Box className="participant-header">
+              <Paper key={participant.id} variant="outlined" sx={{ p: 1 }}>
+                <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1 }}>
                   <Avatar
                     alt={participant.player?.name}
                     size={40}
                   />
-                  <Box className="participant-info">
-                    <Typography variant="body2" fontWeight={600} className="participant-name">
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="body2" fontWeight={600}>
                       {participant.player?.name}
                       {participant.seed_position && (
                         <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
@@ -1171,7 +1185,7 @@ function EventDetails({ event, playersById = new Map() }) {
                       )}
                     </Typography>
                   </Box>
-                </Box>
+                </Stack>
                 {participant.player && (
                   <Typography variant="caption" color="primary" display="block" sx={{ mt: 0.5 }}>
                     Rank pts: {(ranking?.rankPoints ?? 0).toFixed(2)}
@@ -1181,8 +1195,8 @@ function EventDetails({ event, playersById = new Map() }) {
                   </Typography>
                 )}
                 {participant.partner && (
-                  <Box className="participant-partner" sx={{ mt: 1, pt: 1, borderTop: 1, borderColor: 'divider' }}>
-                    <Box className="partner-header" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ mt: 1, pt: 1, borderTop: 1, borderColor: 'divider' }}>
+                    <Stack direction="row" alignItems="center" spacing={1}>
                       <Avatar
                         alt={participant.partner?.name}
                         size={32}
@@ -1195,7 +1209,7 @@ function EventDetails({ event, playersById = new Map() }) {
                           ({(partnerRanking?.rankPoints ?? 0).toFixed(2)} pts)
                         </Typography>
                       </Box>
-                    </Box>
+                    </Stack>
                   </Box>
                 )}
                 <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
@@ -1217,7 +1231,7 @@ function EventDetails({ event, playersById = new Map() }) {
 function RegistrationManager({ event, players, onClose, onUpdate, onPlayersChange }) {
   const [selectedPlayers, setSelectedPlayers] = useState([])
   const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState('')
+  const [message, setMessage] = useState(null)
   const [rankedPlayers, setRankedPlayers] = useState(players)
   const [showAddPlayerModal, setShowAddPlayerModal] = useState(false)
 
@@ -1243,12 +1257,12 @@ function RegistrationManager({ event, players, onClose, onUpdate, onPlayersChang
       for (const playerId of selectedPlayers) {
         await participantsApi.register(event.id, playerId)
       }
-      setMessage('✅ Players registered successfully!')
+      setMessage({ severity: 'success', text: 'Players registered successfully!' })
       setSelectedPlayers([])
       onUpdate()
     } catch (error) {
       reportError('Error registering players', error)
-      setMessage(`❌ ${userFacingError('register players')}`)
+      setMessage({ severity: 'error', text: userFacingError('register players') })
     } finally {
       setLoading(false)
     }
@@ -1260,7 +1274,10 @@ function RegistrationManager({ event, players, onClose, onUpdate, onPlayersChang
     setSelectedPlayers((prev) =>
       prev.includes(createdPlayer.id) ? prev : [...prev, createdPlayer.id]
     )
-    setMessage(`✅ Added ${createdPlayer.name} and selected for registration`)
+    setMessage({
+      severity: 'success',
+      text: `Added ${createdPlayer.name} and selected for registration`
+    })
   }
 
   const registeredPlayerIds = event.event_participants?.map(p => p.player_id) || []
@@ -1286,11 +1303,11 @@ function RegistrationManager({ event, players, onClose, onUpdate, onPlayersChang
 
       {message && (
         <Alert
-          severity={isSuccessMessage(message) ? 'success' : 'error'}
-          onClose={() => setMessage('')}
+          severity={message.severity}
+          onClose={() => setMessage(null)}
           sx={{ mb: 2 }}
         >
-          {stripMessagePrefix(message)}
+          {message.text}
         </Alert>
       )}
 
@@ -1455,15 +1472,8 @@ function AlertModal({ open, title, message, onClose }) {
       </DialogTitle>
       <DialogContent>
         <Box sx={{ textAlign: 'center', py: 1 }}>
-          <Typography sx={{ fontSize: '3rem', lineHeight: 1, mb: 1 }}>😱</Typography>
-          <Typography
-            sx={{
-              fontSize: '1.75rem',
-              fontWeight: 700,
-              textAlign: 'center',
-              mb: 2
-            }}
-          >
+          <BlockIcon color="error" sx={{ fontSize: 56, mb: 1 }} aria-hidden="true" />
+          <Typography variant="h4" sx={{ mb: 2 }}>
             Oh My!
           </Typography>
           <DialogContentText sx={{ textAlign: 'center' }}>
@@ -1493,7 +1503,7 @@ function DeleteConfirmationModal({ open, tournament, onConfirm, onCancel, loadin
       </DialogTitle>
       <DialogContent>
         <Box sx={{ textAlign: 'center', py: 1 }}>
-          <Typography sx={{ fontSize: '3rem', lineHeight: 1, mb: 2 }}>⚠️</Typography>
+          <ReportProblemIcon color="warning" sx={{ fontSize: 56, mb: 2 }} aria-hidden="true" />
           <DialogContentText sx={{ mb: 1.5, color: 'text.primary' }}>
             Are you sure you want to delete the tournament <strong>&quot;{tournament.name}&quot;</strong>?
           </DialogContentText>
