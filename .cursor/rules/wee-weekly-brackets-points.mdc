@@ -1,0 +1,17 @@
+---
+description: Preserves Wee Weekly bracket structure and points rules
+alwaysApply: true
+---
+
+# Wee Weekly Brackets and Points
+
+For every prompt or update, determine whether it affects draws, seeding, byes, doubles teams, matches, rounds, consolation, scores, results, points, rankings, leaderboards, or bracket presentation.
+
+If it does:
+
+1. Read and apply `.cursor/skills/wee-weekly-brackets-points/SKILL.md` before acting.
+2. Preserve the ATP/ITF-style draw invariants and custom Wee Weekly points table.
+3. Keep canonical calculations in `src/lib/tournamentUtils.js` and align server-side leaderboard calculations.
+4. Do not change bracket or points rules without identifying the impact and obtaining explicit user approval.
+5. Apply `.cursor/skills/material-design-3-frontend/SKILL.md` to bracket UI work.
+6. Test the affected draw, progression, scoring, and ranking invariants.
