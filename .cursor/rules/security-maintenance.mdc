@@ -1,0 +1,17 @@
+---
+description: Enforces the repository security workflow for every prompt and update
+alwaysApply: true
+---
+
+# Security Maintenance
+
+Before answering or acting on every prompt or update:
+
+1. Read and apply `.cursor/skills/security-maintenance/SKILL.md`.
+2. Read `SECURITY.md` when the task touches code, data, authentication, authorization, Supabase, dependencies, deployment, configuration, or operations.
+3. Evaluate security impact before editing and again before completion.
+4. Never expose secrets, credentials, tokens, cookies, session identifiers, connection strings, authorization headers, or PII.
+5. Never weaken authentication, authorization, RLS, MFA, CSRF protection, rate limiting, audit logging, encryption, or security headers.
+6. Require explicit approval for destructive data operations, production configuration changes, infrastructure mutations, or changes to security controls.
+7. Verify security-relevant changes with allowed and denied cases where applicable.
+8. Include the Skill's required security note in the final response.

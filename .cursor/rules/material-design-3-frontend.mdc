@@ -1,0 +1,18 @@
+---
+description: Enforces Material Design 3 and MUI for all frontend work
+alwaysApply: true
+---
+
+# Material Design 3 Frontend
+
+For every prompt or update, determine whether it creates, changes, reviews, or plans frontend UI.
+
+If it does:
+
+1. Read and apply `.cursor/skills/material-design-3-frontend/SKILL.md` before acting.
+2. Use `@mui/material`, MUI props, theme tokens, and token-based `sx`.
+3. Do not add visual CSS classes, inline `style`, component stylesheets, another design system, or selectors targeting generated `.Mui-*` classes.
+4. Treat existing `src/app.css` styling as migration debt; migrate touched UI and never expand it.
+5. Centralize reusable visual decisions in `src/theme.js`.
+6. Verify responsive behavior, light/dark schemes, accessibility, and interaction states.
+7. Report any requested deviation and obtain explicit approval before implementing it.
