@@ -46,9 +46,9 @@ export default function Leaderboard({ type, onClose }) {
   }
 
   const rankDisplay = (rank) => {
-    if (rank === 1) return <EmojiEventsIcon color="warning" aria-hidden="true" />
+    if (rank === 1) return <EmojiEventsIcon color="gold" aria-hidden="true" />
     if (rank === 2) return <EmojiEventsIcon sx={{ color: 'text.secondary' }} aria-hidden="true" />
-    if (rank === 3) return <EmojiEventsIcon color="secondary" aria-hidden="true" />
+    if (rank === 3) return <EmojiEventsIcon color="bronze" aria-hidden="true" />
     return rank
   }
 

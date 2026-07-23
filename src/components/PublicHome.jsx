@@ -21,17 +21,17 @@ const HOME_BG_MOBILE = `${import.meta.env.BASE_URL}login-bg-mobile.jpg`
 
 const details = [
   {
-    icon: <GroupsIcon color="primary" />,
+    icon: <GroupsIcon color="primary" sx={{ fontSize: 52 }} />,
     title: 'Open to every level',
     body: 'The Wee Weekly is a friendly, drop-in tournament that gives club members regular tournament-style play.'
   },
   {
-    icon: <SportsTennisIcon color="secondary" />,
+    icon: <SportsTennisIcon color="secondary" sx={{ fontSize: 52 }} />,
     title: 'Singles and doubles',
     body: 'The event alternates between singles and doubles. Doubles players are randomly paired with a partner.'
   },
   {
-    icon: <AccessTimeIcon color="primary" />,
+    icon: <AccessTimeIcon color="primary" sx={{ fontSize: 52 }} />,
     title: 'Saturday mornings',
     body: 'Arrive before 8:45 a.m. to make the draw. Matches are called and begin shortly after 9:00 a.m.'
   }
@@ -190,8 +190,15 @@ export default function PublicHome({ onOpenLeaderboard }) {
         }}
       >
         <Container maxWidth="md">
-          <Stack spacing={1.5} alignItems="center" sx={{ mb: 4, textAlign: 'center' }}>
-            <EmojiEventsIcon color="primary" sx={{ fontSize: 64 }} />
+          <Stack
+            spacing={1.5}
+            useFlexGap
+            alignItems="center"
+            sx={{ mb: 4, textAlign: 'center' }}
+          >
+            <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+              <EmojiEventsIcon color="gold" sx={{ fontSize: 100 }} />
+            </Box>
             <Typography id="rankings-heading" variant="h4" component="h2">
               Player rankings
             </Typography>

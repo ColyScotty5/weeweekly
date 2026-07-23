@@ -3,7 +3,9 @@ import { createTheme } from '@mui/material/styles'
 const brand = {
   blue: '#007bff',
   courtGreen: '#2E7D32',
-  brandRed: '#971f1f'
+  brandRed: '#971f1f',
+  brandGold: '#ffc107',
+  brandBronze: '#b26a00'
 }
 
 const focusVisible = ({ theme }) => ({
@@ -68,6 +70,12 @@ export const theme = createTheme({
           first: { main: '#b26a00', contrastText: '#ffffff' },
           second: { main: '#5f6368', contrastText: '#ffffff' },
           semifinal: { main: '#8a4f16', contrastText: '#ffffff' }
+        },
+        gold: {
+          main: brand.brandGold
+        },
+        bronze: {
+          main: brand.brandBronze
         }
       }
     },
