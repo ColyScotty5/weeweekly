@@ -66,6 +66,7 @@ export const WEE_WEEKLY_SCHEDULE_2026 = [
     status: 'completed',
     participants: 24,
     winner: 'Dave Masson & Mohammad Houssein',
+    runnerUp: 'Steve O\'Neil & Brian Murray',
     drawUrl:
       'https://images.squarespace-cdn.com/content/5e7e55296dd1ba2bdaf2132b/ce25a30e-31b7-4ad3-815c-8fa2a46fd151/doubles-final-draw-jul-25-2026.jpg?content-type=image%2Fjpeg'
   },
