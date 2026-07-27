@@ -60,19 +60,26 @@ export const WEE_WEEKLY_SCHEDULE_2026 = [
     drawUrl:
       'https://images.squarespace-cdn.com/content/5e7e55296dd1ba2bdaf2132b/d0330ee3-13c8-429c-a4b2-87af2e7fd183/singles-final-draw-jul-18-2026%5Fpage-0001.jpg?content-type=image%2Fjpeg'
   },
-  { date: '2026-07-25', type: 'Doubles', status: 'upcoming' },
+  {
+    date: '2026-07-25',
+    type: 'Doubles',
+    status: 'completed',
+    participants: 24,
+    winner: 'Dave Masson & Mohammad Houssein',
+    drawUrl:
+      'https://images.squarespace-cdn.com/content/5e7e55296dd1ba2bdaf2132b/ce25a30e-31b7-4ad3-815c-8fa2a46fd151/doubles-final-draw-jul-25-2026.jpg?content-type=image%2Fjpeg'
   {
     date: '2026-08-01',
     type: 'No Wee Weekly',
     status: 'no_event',
     note: 'Dave Piers Open'
   },
-  { date: '2026-08-08', type: 'Doubles', status: 'upcoming' },
-  { date: '2026-08-15', type: 'Singles', status: 'upcoming' },
-  { date: '2026-08-22', type: 'Doubles', status: 'upcoming' },
-  { date: '2026-08-29', type: 'Singles', status: 'upcoming' },
-  { date: '2026-09-05', type: 'Doubles', status: 'upcoming' },
-  { date: '2026-09-12', type: 'Singles', status: 'upcoming' },
+  { date: '2026-08-08', type: 'Singles', status: 'upcoming' },
+  { date: '2026-08-15', type: 'Doubles', status: 'upcoming' },
+  { date: '2026-08-22', type: 'Singles', status: 'upcoming' },
+  { date: '2026-08-29', type: 'Doubles', status: 'upcoming' },
+  { date: '2026-09-05', type: 'Singles', status: 'upcoming' },
+  { date: '2026-09-12', type: 'Doubles', status: 'upcoming' },
   {
     date: '2026-09-19',
     type: 'No Wee Weekly',
@@ -85,6 +92,6 @@ export const WEE_WEEKLY_SCHEDULE_2026 = [
     status: 'no_event',
     note: "St. George's Closed"
   },
-  { date: '2026-10-03', type: 'Doubles', status: 'upcoming' },
-  { date: '2026-10-10', type: 'Singles', status: 'upcoming' }
+  { date: '2026-10-03', type: 'Singles', status: 'upcoming' },
+  { date: '2026-10-10', type: 'Doubles', status: 'upcoming' }
 ]
