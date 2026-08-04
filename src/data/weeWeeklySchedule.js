@@ -76,24 +76,29 @@ export const WEE_WEEKLY_SCHEDULE_2026 = [
     status: 'no_event',
     note: 'Dave Piers Open'
   },
-  { date: '2026-08-08', type: 'Singles', status: 'upcoming' },
-  { date: '2026-08-15', type: 'Doubles', status: 'upcoming' },
-  { date: '2026-08-22', type: 'Singles', status: 'upcoming' },
-  { date: '2026-08-29', type: 'Doubles', status: 'upcoming' },
-  { date: '2026-09-05', type: 'Singles', status: 'upcoming' },
-  { date: '2026-09-12', type: 'Doubles', status: 'upcoming' },
+  { date: '2026-08-08', type: 'Doubles', status: 'upcoming' },
+  { date: '2026-08-15', type: 'Singles', status: 'upcoming' },
+  { date: '2026-08-22', type: 'Doubles', status: 'upcoming' },
+  { date: '2026-08-29', type: 'Singles', status: 'upcoming' },
+  { date: '2026-09-05', type: 'Doubles', status: 'upcoming' },
+  {
+    date: '2026-09-12',
+    type: 'No Wee Weekly',
+    status: 'no_event',
+    note: "St. George's Closed Tournament"
+    },
   {
     date: '2026-09-19',
     type: 'No Wee Weekly',
     status: 'no_event',
-    note: "St. George's Masters"
+    note: "St. George's ITF Masters - <a href='https://www.itftennis.com/en/tournament/mt100-dartmouth-halifax/can/2026/s-mt100-can-2026-003/' title='View the ITF Master Official Page'>View Event</a>"
   },
+
   {
     date: '2026-09-26',
-    type: 'No Wee Weekly',
-    status: 'no_event',
-    note: "St. George's Closed"
+    type: 'Singles',
+    status: 'upcoming'
   },
-  { date: '2026-10-03', type: 'Singles', status: 'upcoming' },
-  { date: '2026-10-10', type: 'Doubles', status: 'upcoming' }
+  { date: '2026-10-03', type: 'Doubles', status: 'upcoming' },
+  { date: '2026-10-10', type: 'Singles', status: 'upcoming' }
 ]
