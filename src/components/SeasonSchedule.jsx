@@ -15,6 +15,7 @@ import {
   Typography
 } from '@mui/material'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
+import RichText from './RichText'
 import { WEE_WEEKLY_SCHEDULE_2026 } from '../data/weeWeeklySchedule'
 
 const statusDetails = {
@@ -48,7 +49,7 @@ function EventDetails({ event }) {
         )}
         {event.note && (
           <Typography variant="caption" color="text.secondary">
-            {event.note}
+            <RichText value={event.note} />
           </Typography>
         )}
       </Stack>
@@ -58,7 +59,7 @@ function EventDetails({ event }) {
   if (event.status === 'no_event') {
     return (
       <Typography variant="body2" color="text.secondary">
-        Club tournament: {event.note}
+        Club tournament: <RichText value={event.note} />
       </Typography>
     )
   }

@@ -5,6 +5,7 @@ import test from 'node:test'
 import { compareLeaderboardEntries } from '../src/lib/tournamentUtils.js'
 import { WEE_WEEKLY_SCHEDULE_2026 } from '../src/data/weeWeeklySchedule.js'
 import { validateNewPassword } from '../src/lib/passwordPolicy.js'
+import { parseRichText, richTextToPlainText } from '../src/lib/richText.js'
 
 function readFilesRecursively(directoryUrl, extension) {
   return readdirSync(directoryUrl, { withFileTypes: true }).flatMap((entry) => {
@@ -68,6 +69,74 @@ test('2026 schedule data is ordered, unique, and complete', () => {
     }
     if (event.status === 'no_event') assert.ok(event.note)
     if (event.drawUrl) assert.match(event.drawUrl, /^https:\/\//)
+  }
+})
+
+test('schedule notes keep allowlisted inline markup', () => {
+  const nodes = parseRichText(
+    "St. George&apos;s ITF Masters - <a href='https://www.itftennis.com/en/' title='View'>View Event</a>"
+  )
+
+  assert.deepEqual(nodes, [
+    { type: 'text', value: "St. George's ITF Masters - " },
+    {
+      type: 'element',
+      tag: 'a',
+      props: { href: 'https://www.itftennis.com/en/', title: 'View' },
+      children: [{ type: 'text', value: 'View Event' }]
+    }
+  ])
+
+  assert.deepEqual(parseRichText('Rain <br> delay'), [
+    { type: 'text', value: 'Rain ' },
+    { type: 'element', tag: 'br', props: {}, children: [] },
+    { type: 'text', value: ' delay' }
+  ])
+})
+
+test('schedule notes strip unsafe markup, attributes, and URL schemes', () => {
+  assert.deepEqual(parseRichText('<script>alert(1)</script>Final'), [
+    { type: 'text', value: 'Final' }
+  ])
+
+  assert.deepEqual(
+    parseRichText('<img src=x onerror="alert(1)">Draw <div onclick="steal()">posted</div>'),
+    [{ type: 'text', value: 'Draw posted' }]
+  )
+
+  for (const unsafe of [
+    '<a href="javascript:alert(1)">Tap</a>',
+    '<a href="JaVaScRiPt:alert(1)">Tap</a>',
+    '<a href="java\tscript:alert(1)">Tap</a>',
+    '<a href="data:text/html,<script>alert(1)</script>">Tap</a>',
+    '<a href="&#106;avascript:alert(1)">Tap</a>'
+  ]) {
+    const [node] = parseRichText(unsafe)
+    assert.equal(node.tag, 'a')
+    assert.equal('href' in node.props, false, `${unsafe} must not keep an unsafe href`)
+    assert.equal('onclick' in node.props, false)
+  }
+
+  const [external] = parseRichText('<a href="https://example.com" target="_top">Tap</a>')
+  assert.equal('target' in external.props, false)
+
+  assert.equal(richTextToPlainText('<b>Rain</b> delay <script>alert(1)</script>'), 'Rain delay')
+})
+
+test('rich text renders through Material components without raw HTML injection', () => {
+  const richText = readFileSync(new URL('../src/components/RichText.jsx', import.meta.url), 'utf8')
+  const schedule = readFileSync(
+    new URL('../src/components/SeasonSchedule.jsx', import.meta.url),
+    'utf8'
+  )
+  const sourceFiles = readFilesRecursively(new URL('../src/', import.meta.url), '.jsx')
+
+  assert.match(richText, /parseRichText/)
+  assert.match(richText, /rel=\{target === '_blank' \? 'noopener noreferrer' : undefined\}/)
+  assert.match(schedule, /<RichText value=\{event\.note\} \/>/)
+
+  for (const { path, source } of sourceFiles) {
+    assert.doesNotMatch(source, /dangerouslySetInnerHTML/, `${path} must not inject raw HTML`)
   }
 })
 

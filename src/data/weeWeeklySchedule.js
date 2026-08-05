@@ -86,7 +86,7 @@ export const WEE_WEEKLY_SCHEDULE_2026 = [
     type: 'No Wee Weekly',
     status: 'no_event',
     note: "St. George's Closed Tournament"
-    },
+  },
   {
     date: '2026-09-19',
     type: 'No Wee Weekly',
