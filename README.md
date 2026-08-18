@@ -14,7 +14,7 @@ A comprehensive web application for managing weekly tennis tournaments with auto
 - **Singles**: Top 1/4 of participants get seeded, rest are randomly placed
 - **Doubles**: Half of participants get seeded, other half randomly assigned as partners
 - Standard tournament bracket structure
-- Support for consolation brackets
+- Consolation bracket sized from the main draw, always ending on a single final
 
 ### Match Tracking
 - Record match results with scores
@@ -30,6 +30,13 @@ A comprehensive web application for managing weekly tennis tournaments with auto
 
 ### Points System
 
+A player earns one result per event. Losing in the main draw and then playing the
+consolation means the consolation result is the one that counts — the consolation
+tiers below replace the main-draw round the player was knocked out in. A
+consolation tier is decided by how close the round is to the consolation final, so
+the first consolation round is a quarter-final in an eight-player consolation and a
+semi-final in a four-player one.
+
 #### Singles Events
 **Main Draw:**
 - Winner: 45 points
@@ -40,12 +47,12 @@ A comprehensive web application for managing weekly tennis tournaments with auto
 - Round of 32: 5 points
 
 **Consolation Draw:**
-- Winner: 14 points
-- Runner-up: 12 points
-- Semi-final: 8 points
-- Quarter-final: 5 points
-- Round of 16: 3 points
-- Round of 32: 2 points
+- Winner: 12 points
+- Runner-up: 8 points
+- Semi-final: 5 points
+- Quarter-final: 3 points
+- Round of 16: 2 points
+- Round of 32: 1 point
 
 #### Doubles Events
 **Main Draw:**
@@ -57,12 +64,12 @@ A comprehensive web application for managing weekly tennis tournaments with auto
 - Round of 32: 3 points
 
 **Consolation Draw:**
-- Winner: 14 points
-- Runner-up: 12 points
-- Semi-final: 8 points
-- Quarter-final: 5 points
-- Round of 16: 3 points
-- Round of 32: 2 points
+- Winner: 12 points
+- Runner-up: 8 points
+- Semi-final: 5 points
+- Quarter-final: 3 points
+- Round of 16: 2 points
+- Round of 32: 1 point
 
 ## Database Schema
 

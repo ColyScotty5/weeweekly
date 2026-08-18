@@ -52,18 +52,37 @@ The draw uses ATP/ITF-style placement. The points values are custom Wee Weekly r
 - A bye recipient enters consolation only after losing their first real main-draw match.
 - Keep the adjacent first-round loser pending while that possible opponent remains alive.
 - If the bye recipient wins the next main match, grant the waiting consolation player the consolation bye.
-- Preserve the progression `Consolation Round 1` → `Consolation Semi-Final` → `Consolation Final`.
+- Size the consolation bracket from the main first round: it holds `ceil(mainFirstRoundMatches / 2)` first-round matches.
+- Name the first consolation round `Consolation Round 1` and every later round by its distance from the consolation final, so the bracket always ends on exactly one `Consolation Final`.
+- Use `getConsolationRoundNames(firstRoundMatchCount)` as the single source of the round sequence. Never derive the next consolation round from the round name alone.
+
+| Consolation first-round matches | Progression |
+| ---: | --- |
+| 1 | `Consolation Round 1` |
+| 2 | `Consolation Round 1` → `Consolation Final` |
+| 4 | `Consolation Round 1` → `Consolation Semi-Final` → `Consolation Final` |
+| 8 | `Consolation Round 1` → `Consolation Quarter-Final` → `Consolation Semi-Final` → `Consolation Final` |
+| 16 | `Consolation Round 1` → `Consolation Round of 16` → `Consolation Quarter-Final` → `Consolation Semi-Final` → `Consolation Final` |
 
 ## Canonical points breakdown
 
 | Event | Bracket | Winner | Runner-up | Semi-final | Quarter-final | Round of 16 | Round of 32 |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Singles | Main | 45 | 30 | 20 | 14 | 8 | 5 |
-| Singles | Consolation | 14 | 12 | 8 | 5 | 3 | 2 |
+| Singles | Consolation | 12 | 8 | 5 | 3 | 2 | 1 |
 | Doubles | Main | 30 | 20 | 14 | 10 | 5 | 3 |
-| Doubles | Consolation | 14 | 12 | 8 | 5 | 3 | 2 |
+| Doubles | Consolation | 12 | 8 | 5 | 3 | 2 | 1 |
 
-Do not add, remove, interpolate, or reinterpret a tier without explicit user approval. Main-bracket status wins when a value collides with consolation, such as 14 points. Preserve the existing nearest-tier handling for non-exact stored values unless the scoring model is intentionally migrated.
+Do not add, remove, interpolate, or reinterpret a tier without explicit user approval. Every consolation award is below every corresponding main award, so entering the consolation can lower a player's event points relative to their main-draw exit. That is intended. Main-bracket status wins when a value collides with consolation, such as singles 8 points. Preserve the existing nearest-tier handling for non-exact stored values unless the scoring model is intentionally migrated.
+
+## Awarding event points
+
+- Award every participant exactly one status and one points value through `calculateParticipantResult` in `src/lib/tournamentUtils.js`.
+- A player with a finished consolation match is scored from the consolation table only. The main-draw loss that sent them there is superseded, not added to and not compared against.
+- A cancelled or unplayed consolation match leaves the main-draw result standing.
+- Resolve a consolation tier from the round's distance from the consolation final, never from its label: `Consolation Round 1` is a different tier in a four-player consolation than in a sixteen-player one.
+- Treat a doubles partner as a member of their team. `winner_id` holds only the winning side's first player, so never infer elimination from `winner_id` alone.
+- Count a bye as advancing the recipient to the following round.
 
 ## Rolling rankings
 

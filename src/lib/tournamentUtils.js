@@ -30,12 +30,12 @@ export const POINTS_SYSTEM = {
       round_32: 5
     },
     consolation: {
-      winner: 14,
-      runner_up: 12,
-      semi_final: 8,
-      quarter_final: 5,
-      round_16: 3,
-      round_32: 2
+      winner: 12,
+      runner_up: 8,
+      semi_final: 5,
+      quarter_final: 3,
+      round_16: 2,
+      round_32: 1
     }
   },
   doubles: {
@@ -48,12 +48,12 @@ export const POINTS_SYSTEM = {
       round_32: 3
     },
     consolation: {
-      winner: 14,
-      runner_up: 12,
-      semi_final: 8,
-      quarter_final: 5,
-      round_16: 3,
-      round_32: 2
+      winner: 12,
+      runner_up: 8,
+      semi_final: 5,
+      quarter_final: 3,
+      round_16: 2,
+      round_32: 1
     }
   }
 }
@@ -79,8 +79,9 @@ export const RESULT_STATUS_LABELS = {
 }
 
 /**
- * Infer result status from points earned.
- * Main-bracket values win on collisions with consolation (e.g. 14 → quarter_final).
+ * Infer result status from points earned, for stored rows that predate
+ * calculateParticipantResult recording status and points together.
+ * Main-bracket values win on collisions with consolation (singles 8 → round_16).
  * Non-exact values (e.g. shared 37.5 → 38) snap to the nearest known points tier.
  */
 export function resultStatusFromPoints(eventType, pointsEarned) {
@@ -583,6 +584,128 @@ export function calculatePoints(eventType, roundName, bracketType, isWinner) {
   return pointsTable[pointKey] || 0
 }
 
+const RESULT_TIER_RANK = {
+  round_32: 1,
+  round_16: 2,
+  quarter_final: 3,
+  semi_final: 4,
+  runner_up: 5,
+  winner: 6
+}
+
+const MAIN_ELIMINATION_TIER = {
+  'Round of 32': 'round_32',
+  'Round of 16': 'round_16',
+  'Quarter-Final': 'quarter_final',
+  'Semi-Final': 'semi_final',
+  Final: 'runner_up'
+}
+
+const MAIN_ADVANCE_TIER = {
+  'Round of 32': 'round_16',
+  'Round of 16': 'quarter_final',
+  'Quarter-Final': 'semi_final',
+  'Semi-Final': 'runner_up',
+  Final: 'winner'
+}
+
+/** 1 or 2 for the side a player (or their doubles partner) sits on, else null. */
+function getMatchPlayerSide(match, playerId) {
+  if (!match || playerId == null) return null
+  if (match.player1_id === playerId || match.player1_partner_id === playerId) return 1
+  if (match.player2_id === playerId || match.player2_partner_id === playerId) return 2
+  return null
+}
+
+// winner_id holds the winning side's first player, so a doubles partner is on the
+// winning side without ever being the winner_id.
+function didSideWin(match, side) {
+  if (!match?.winner_id) return false
+  return side === 1
+    ? match.winner_id === match.player1_id
+    : match.winner_id === match.player2_id
+}
+
+function resolveFurthestTier(matches, playerId, eliminationTierFor, advanceTierFor) {
+  let furthestTier = null
+  let furthestRank = 0
+
+  for (const match of matches) {
+    if (match.status !== 'completed' && match.status !== 'walkover') continue
+
+    const side = getMatchPlayerSide(match, playerId)
+    if (!side) continue
+
+    const tier = didSideWin(match, side)
+      ? advanceTierFor(match.round_name)
+      : eliminationTierFor(match.round_name)
+    const rank = RESULT_TIER_RANK[tier] || 0
+
+    if (tier && rank > furthestRank) {
+      furthestRank = rank
+      furthestTier = tier
+    }
+  }
+
+  return furthestTier
+}
+
+/**
+ * Event result status and points for one participant.
+ *
+ * A player with a finished consolation match is scored from the consolation table
+ * only — the main-draw loss that sent them there is superseded. An unplayed or
+ * cancelled consolation match leaves the main-draw result standing.
+ *
+ * `matches` must be every match in the event: the consolation round names depend
+ * on the size of the main first round.
+ */
+export function calculateParticipantResult(eventType, playerId, matches = []) {
+  const system = POINTS_SYSTEM[eventType] || POINTS_SYSTEM.singles
+  const consolationRounds = getConsolationRoundNamesForMatches(matches)
+
+  const depthFromConsolationFinal = (roundName) => {
+    const index = consolationRounds.indexOf(roundName)
+    return index === -1 ? null : consolationRounds.length - 1 - index
+  }
+
+  const tierAtDepth = (depth) =>
+    TIER_BY_DEPTH_FROM_FINAL[
+      Math.min(Math.max(depth, 0), TIER_BY_DEPTH_FROM_FINAL.length - 1)
+    ]
+
+  const consolationTier = resolveFurthestTier(
+    matches.filter((match) => match.bracket_type === 'consolation'),
+    playerId,
+    (roundName) => {
+      const depth = depthFromConsolationFinal(roundName)
+      return depth == null ? null : tierAtDepth(depth)
+    },
+    (roundName) => {
+      const depth = depthFromConsolationFinal(roundName)
+      if (depth == null) return null
+      return depth === 0 ? 'winner' : tierAtDepth(depth - 1)
+    }
+  )
+
+  if (consolationTier) {
+    return {
+      status: `consolation_${consolationTier}`,
+      points: system.consolation[consolationTier] ?? 0
+    }
+  }
+
+  const mainTier =
+    resolveFurthestTier(
+      matches.filter((match) => match.bracket_type === 'main' || !match.bracket_type),
+      playerId,
+      (roundName) => MAIN_ELIMINATION_TIER[roundName] || null,
+      (roundName) => MAIN_ADVANCE_TIER[roundName] || null
+    ) || 'round_32'
+
+  return { status: mainTier, points: system.main[mainTier] ?? 0 }
+}
+
 // Calculate ranking points for a player
 export function calculateRankingPoints(playerResults, eventType) {
   if (!playerResults || playerResults.length === 0) return 0
@@ -609,6 +732,90 @@ const MAIN_ROUND_ORDER = [
   'Semi-Final',
   'Final'
 ]
+
+export const CONSOLATION_FIRST_ROUND_NAME = 'Consolation Round 1'
+
+// Consolation rounds after the first are named by their distance from the
+// consolation final, so the bracket ends on a real final at every draw size.
+const CONSOLATION_ROUND_NAME_BY_DEPTH = [
+  'Consolation Final',
+  'Consolation Semi-Final',
+  'Consolation Quarter-Final',
+  'Consolation Round of 16',
+  'Consolation Round of 32'
+]
+
+// Points tier reached by losing a round at the given distance from the final.
+const TIER_BY_DEPTH_FROM_FINAL = [
+  'runner_up',
+  'semi_final',
+  'quarter_final',
+  'round_16',
+  'round_32'
+]
+
+const ROUND_SORT_ORDER = new Map([
+  ['Round of 64', 1],
+  ['Round of 32', 2],
+  ['Round of 16', 3],
+  ['Quarter-Final', 4],
+  ['Semi-Final', 5],
+  ['Final', 6],
+  [CONSOLATION_FIRST_ROUND_NAME, 11],
+  ['Consolation Round of 32', 12],
+  ['Consolation Round of 16', 13],
+  ['Consolation Quarter-Final', 14],
+  ['Consolation Semi-Final', 15],
+  ['Consolation Final', 16]
+])
+
+/** Left-to-right bracket column order for a round name. */
+export function getRoundSortOrder(roundName) {
+  if (!roundName) return 999
+  const known = ROUND_SORT_ORDER.get(roundName)
+  if (known) return known
+
+  const numbered = /^Round (\d+)$/.exec(roundName)
+  if (numbered) return Number(numbered[1])
+
+  return 999
+}
+
+/**
+ * Consolation round names, earliest first, for a bracket whose first round holds
+ * `firstRoundMatchCount` matches. The first round keeps its historical label and
+ * every later round is named by its distance from the consolation final.
+ */
+export function getConsolationRoundNames(firstRoundMatchCount) {
+  let remaining = Math.max(1, Math.floor(Number(firstRoundMatchCount) || 0))
+  const names = [CONSOLATION_FIRST_ROUND_NAME]
+
+  while (remaining > 1) {
+    remaining = Math.ceil(remaining / 2)
+    const depth = Math.ceil(Math.log2(remaining))
+    names.push(
+      CONSOLATION_ROUND_NAME_BY_DEPTH[depth] || `Consolation Round ${names.length + 1}`
+    )
+  }
+
+  return names
+}
+
+/** Consolation round names implied by an event's main draw. */
+export function getConsolationRoundNamesForMatches(allMatches = []) {
+  const mainMatches = allMatches.filter(
+    (match) => match.bracket_type === 'main' || !match.bracket_type
+  )
+  const firstRoundName = getMainFirstRoundName(mainMatches)
+  if (!firstRoundName) return []
+
+  const firstRoundCount = mainMatches.filter(
+    (match) => match.round_name === firstRoundName
+  ).length
+  if (firstRoundCount === 0) return []
+
+  return getConsolationRoundNames(Math.ceil(firstRoundCount / 2))
+}
 
 function getMainFirstRoundName(mainMatches) {
   const roundNames = [...new Set(mainMatches.map((match) => match.round_name).filter(Boolean))]
@@ -689,10 +896,17 @@ function isMatchFinished(match) {
  * - If N was a Bye: that player's first *real* loss (next main round) puts them into consol
  * - Until then the adjacent R1 loser waits as Pending (not auto-advanced via consol Bye)
  */
-export async function syncConsolationMatches(eventId) {
-  const { matchesApi } = await import('./supabase.js')
+export async function syncConsolationMatches(eventId, dataAccess) {
+  const { matchesApi, eventsApi } = dataAccess || (await import('./supabase.js'))
 
   const allMatches = await matchesApi.getByEvent(eventId)
+  const event = await eventsApi.getById(eventId)
+
+  // Completed events are historical records; never rewrite their brackets.
+  if (event?.status === 'completed') {
+    return allMatches.filter((match) => match.bracket_type === 'consolation')
+  }
+
   const mainMatches = allMatches.filter(
     (match) => match.bracket_type === 'main' || !match.bracket_type
   )
@@ -702,16 +916,20 @@ export async function syncConsolationMatches(eventId) {
     return allMatches.filter((match) => match.bracket_type === 'consolation')
   }
 
-  const nextRoundName = getNextRoundName(firstRoundName, false)
+  const nextRoundName = getNextRoundName(firstRoundName)
 
   const firstRoundMatches = mainMatches
     .filter((match) => match.round_name === firstRoundName)
     .sort((a, b) => (a.bracket_position ?? a.match_number ?? 0) - (b.bracket_position ?? b.match_number ?? 0))
 
+  const consolationRounds = getConsolationRoundNames(
+    Math.ceil(firstRoundMatches.length / 2)
+  )
+
   const existingConsolationR1 = allMatches.filter(
     (match) =>
       match.bracket_type === 'consolation' &&
-      match.round_name === 'Consolation Round 1'
+      match.round_name === CONSOLATION_FIRST_ROUND_NAME
   )
   const existingByPosition = new Map(
     existingConsolationR1.map((match) => [match.bracket_position, match])
@@ -793,7 +1011,7 @@ export async function syncConsolationMatches(eventId) {
         const created = await matchesApi.create({
           event_id: eventId,
           ...payload,
-          round_name: 'Consolation Round 1',
+          round_name: CONSOLATION_FIRST_ROUND_NAME,
           bracket_type: 'consolation',
           match_number: matchNumber++,
           bracket_position: consolationPosition
@@ -817,7 +1035,7 @@ export async function syncConsolationMatches(eventId) {
 
         // Undo advancement that came from a wrongly granted consol Bye
         if (priorByeWinner) {
-          const nextConsolName = getNextRoundName('Consolation Round 1', true)
+          const nextConsolName = consolationRounds[1] || null
           if (nextConsolName) {
             const advanced = allMatches.filter(
               (match) =>
@@ -881,7 +1099,7 @@ export async function syncConsolationMatches(eventId) {
         const created = await matchesApi.create({
           event_id: eventId,
           ...byePayload,
-          round_name: 'Consolation Round 1',
+          round_name: CONSOLATION_FIRST_ROUND_NAME,
           bracket_type: 'consolation',
           match_number: matchNumber++,
           bracket_position: consolationPosition
@@ -910,7 +1128,7 @@ export async function syncConsolationMatches(eventId) {
         const created = await matchesApi.create({
           event_id: eventId,
           ...pendingPayload,
-          round_name: 'Consolation Round 1',
+          round_name: CONSOLATION_FIRST_ROUND_NAME,
           bracket_type: 'consolation',
           match_number: matchNumber++,
           bracket_position: consolationPosition
@@ -932,7 +1150,9 @@ export async function syncConsolationMatches(eventId) {
     }
   }
 
-  await syncNextRoundMatches(eventId, 'Consolation Round 1')
+  for (const roundName of consolationRounds.slice(0, -1)) {
+    await syncNextRoundMatches(eventId, roundName, { matchesApi, eventsApi })
+  }
 
   const refreshed = await matchesApi.getByEvent(eventId)
   return refreshed.filter((match) => match.bracket_type === 'consolation')
@@ -947,16 +1167,22 @@ export async function generateConsolationMatches(eventId) {
  * Progressively create/update the next round as soon as any feeding match has a winner.
  * Missing opponents stay null and display as "Pending".
  */
-export async function syncNextRoundMatches(eventId, fromRoundName) {
-  const { matchesApi, eventsApi } = await import('./supabase.js')
+export async function syncNextRoundMatches(eventId, fromRoundName, dataAccess) {
+  const { matchesApi, eventsApi } = dataAccess || (await import('./supabase.js'))
+
+  const allMatches = await matchesApi.getByEvent(eventId)
+  const event = await eventsApi.getById(eventId)
+
+  // Completed events are historical records; never rewrite their brackets.
+  if (event?.status === 'completed') return false
 
   const nextIsConsolation = fromRoundName.includes('Consolation')
-  const nextRoundName = getNextRoundName(fromRoundName, nextIsConsolation)
+  const nextRoundName = nextIsConsolation
+    ? getNextConsolationRoundName(fromRoundName, allMatches)
+    : getNextRoundName(fromRoundName)
   if (!nextRoundName) return false
 
   const bracketType = nextIsConsolation ? 'consolation' : 'main'
-  const allMatches = await matchesApi.getByEvent(eventId)
-  const event = await eventsApi.getById(eventId)
 
   const feeding = allMatches
     .filter((match) => {
@@ -1045,43 +1271,35 @@ export async function syncNextRoundMatches(eventId, fromRoundName) {
 }
 
 // Create / refresh next round matches after a result (progressive)
-export async function createNextRoundMatches(eventId, completedRound) {
+export async function createNextRoundMatches(eventId, completedRound, dataAccess) {
   try {
-    return await syncNextRoundMatches(eventId, completedRound)
+    return await syncNextRoundMatches(eventId, completedRound, dataAccess)
   } catch (error) {
     reportError('Error syncing next round matches', error)
     return false
   }
 }
 
-// Get the next round name
-function getNextRoundName(currentRound, isConsolationRound = false) {
-  if (isConsolationRound) {
-    if (currentRound === 'Consolation Round 1') {
-      return 'Consolation Semi-Final'
-    } else if (currentRound === 'Consolation Semi-Final') {
-      return 'Consolation Final'
-    } else if (currentRound === 'Consolation Final') {
-      return null
-    }
+// Get the next main-draw round name
+function getNextRoundName(currentRound) {
+  const currentIndex = MAIN_ROUND_ORDER.indexOf(currentRound)
+  if (currentIndex === -1 || currentIndex === MAIN_ROUND_ORDER.length - 1) {
     return null
   }
-  
-  const roundOrder = [
-    'Round of 64',
-    'Round of 32', 
-    'Round of 16',
-    'Quarter-Final',
-    'Semi-Final',
-    'Final'
-  ]
-  
-  const currentIndex = roundOrder.indexOf(currentRound)
-  if (currentIndex === -1 || currentIndex === roundOrder.length - 1) {
+
+  return MAIN_ROUND_ORDER[currentIndex + 1]
+}
+
+// The consolation bracket is half the size of the main first round, so the round
+// that follows depends on the draw and cannot be resolved from the name alone.
+function getNextConsolationRoundName(currentRound, allMatches) {
+  const sequence = getConsolationRoundNamesForMatches(allMatches)
+  const currentIndex = sequence.indexOf(currentRound)
+  if (currentIndex === -1 || currentIndex === sequence.length - 1) {
     return null
   }
-  
-  return roundOrder[currentIndex + 1]
+
+  return sequence[currentIndex + 1]
 }
 
 // Rankings are derived from event_participants over the last 12 months.

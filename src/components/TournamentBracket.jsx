@@ -24,7 +24,7 @@ import CloseIcon from '@mui/icons-material/Close'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import { useTheme, alpha } from '@mui/material/styles'
 import { matchesApi } from '../lib/supabase.js'
-import { createNextRoundMatches, syncConsolationMatches, syncNextRoundMatches } from '../lib/tournamentUtils.js'
+import { createNextRoundMatches, getRoundSortOrder, syncConsolationMatches, syncNextRoundMatches } from '../lib/tournamentUtils.js'
 import { reportError } from '../lib/errors.js'
 import Avatar from './Avatar.jsx'
 
@@ -84,7 +84,7 @@ export default function TournamentBracket({ event, bracketType = 'main', onMatch
         const mainMatches = data.filter(match => match.bracket_type === 'main' || !match.bracket_type)
         const firstRound = mainMatches
           .map((match) => match.round_name)
-          .sort((a, b) => getRoundOrder(a) - getRoundOrder(b))[0]
+          .sort((a, b) => getRoundSortOrder(a) - getRoundSortOrder(b))[0]
         if (firstRound) {
           try {
             await syncNextRoundMatches(event.id, firstRound)
@@ -93,7 +93,7 @@ export default function TournamentBracket({ event, bracketType = 'main', onMatch
               refreshed
                 .filter((match) => match.bracket_type === 'main' || !match.bracket_type)
                 .map((match) => match.round_name)
-            )].sort((a, b) => getRoundOrder(a) - getRoundOrder(b))
+            )].sort((a, b) => getRoundSortOrder(a) - getRoundSortOrder(b))
             for (const round of rounds) {
               await syncNextRoundMatches(event.id, round)
             }
@@ -139,7 +139,7 @@ export default function TournamentBracket({ event, bracketType = 'main', onMatch
   }
 
   const matchesByRound = groupMatchesByRound(matches)
-  const rounds = Object.keys(matchesByRound).sort((a, b) => getRoundOrder(a) - getRoundOrder(b))
+  const rounds = Object.keys(matchesByRound).sort((a, b) => getRoundSortOrder(a) - getRoundSortOrder(b))
 
   const calculateBracketHeight = () => {
     const firstRoundMatches = rounds.length > 0 ? matchesByRound[rounds[0]]?.length || 0 : 0
@@ -1160,22 +1160,4 @@ function groupMatchesByRound(matches) {
   })
 
   return grouped
-}
-
-function getRoundOrder(roundName) {
-  const order = {
-    'Round of 64': 1,
-    'Round of 32': 2,
-    'Round of 16': 3,
-    'Quarter-Final': 4,
-    'Semi-Final': 5,
-    'Final': 6
-  }
-
-  if (roundName.startsWith('Round ') && !order[roundName]) {
-    const roundNum = parseInt(roundName.split(' ')[1])
-    return roundNum
-  }
-
-  return order[roundName] || 999
 }

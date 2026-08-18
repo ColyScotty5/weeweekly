@@ -33,7 +33,7 @@ import BlockIcon from '@mui/icons-material/Block'
 import ReportProblemIcon from '@mui/icons-material/ReportProblem'
 import { alpha } from '@mui/material/styles'
 import { tournamentsApi, eventsApi, playersApi, participantsApi, matchesApi, rankingsApi } from '../lib/supabase.js'
-import { generateSinglesDraw, generateDoublesDraw, generateMatches, POINTS_SYSTEM, syncNextRoundMatches, syncConsolationMatches, formatResultStatus, ODD_DOUBLES_REGISTRANTS_MESSAGE } from '../lib/tournamentUtils.js'
+import { generateSinglesDraw, generateDoublesDraw, generateMatches, calculateParticipantResult, syncNextRoundMatches, syncConsolationMatches, formatResultStatus, ODD_DOUBLES_REGISTRANTS_MESSAGE } from '../lib/tournamentUtils.js'
 import { reportError, userFacingError } from '../lib/errors.js'
 import TournamentBracket from './TournamentBracket.jsx'
 import Avatar from './Avatar.jsx'
@@ -788,9 +788,18 @@ function TournamentDetails({
   const completeEvent = async (event) => {
     setLoading(true)
     try {
-      const matches = eventMatches[event.id] || []
+      // Read fresh: consolation matches are created by the bracket view and the
+      // cached copy can lag behind.
+      const matches = await matchesApi.getByEvent(event.id)
+      setEventMatches(prev => ({ ...prev, [event.id]: matches }))
 
-      if (!canCompleteEvent(event.id)) {
+      const allMatchesFinished = matches.length > 0 && matches.every(match =>
+        match.status === 'completed' ||
+        match.status === 'walkover' ||
+        match.status === 'cancelled'
+      )
+
+      if (!allMatchesFinished) {
         setMessage({
           severity: 'error',
           text: 'Cannot complete event: some matches are still in progress'
@@ -799,22 +808,17 @@ function TournamentDetails({
       }
 
       const participants = event.event_participants || []
-      const pointsSystem = POINTS_SYSTEM[event.event_type]?.main || {}
 
       for (const participant of participants) {
-        const playerMatches = matches.filter(match =>
-          match.player1_id === participant.player_id ||
-          match.player2_id === participant.player_id ||
-          match.player1_partner_id === participant.player_id ||
-          match.player2_partner_id === participant.player_id
+        const { status, points } = calculateParticipantResult(
+          event.event_type,
+          participant.player_id,
+          matches
         )
 
-        const furthestRound = calculateFurthestRound(playerMatches, participant.player_id)
-        const pointsEarned = pointsSystem[furthestRound] || 0
-
         await participantsApi.update(participant.id, {
-          points_earned: pointsEarned,
-          status: furthestRound
+          points_earned: points,
+          status
         })
       }
 
@@ -831,73 +835,6 @@ function TournamentDetails({
     } finally {
       setLoading(false)
     }
-  }
-
-  const calculateFurthestRound = (playerMatches, playerId) => {
-    const mainMatches = playerMatches.filter(
-      (match) => match.bracket_type === 'main' || !match.bracket_type
-    )
-
-    const eliminationRound = {
-      'Round of 32': 'round_32',
-      'Round of 16': 'round_16',
-      'Quarter-Final': 'quarter_final',
-      'Semi-Final': 'semi_final',
-      Final: 'runner_up'
-    }
-
-    const advanceFrom = {
-      'Round of 32': 'round_16',
-      'Round of 16': 'quarter_final',
-      'Quarter-Final': 'semi_final',
-      'Semi-Final': 'runner_up',
-      Final: 'winner'
-    }
-
-    const rank = {
-      round_32: 1,
-      round_16: 2,
-      quarter_final: 3,
-      semi_final: 4,
-      runner_up: 5,
-      winner: 6
-    }
-
-    let furthestRound = null
-    let maxRank = 0
-
-    for (const match of mainMatches) {
-      if (match.status !== 'completed' && match.status !== 'walkover') continue
-      if (match.score === 'Bye' && match.winner_id === playerId) {
-        const advanced = advanceFrom[match.round_name]
-        if (advanced && (rank[advanced] || 0) > maxRank) {
-          maxRank = rank[advanced]
-          furthestRound = advanced
-        }
-        continue
-      }
-
-      if (match.winner_id === playerId) {
-        const advanced = advanceFrom[match.round_name]
-        if (advanced && (rank[advanced] || 0) > maxRank) {
-          maxRank = rank[advanced]
-          furthestRound = advanced
-        }
-      } else if (
-        match.player1_id === playerId ||
-        match.player2_id === playerId ||
-        match.player1_partner_id === playerId ||
-        match.player2_partner_id === playerId
-      ) {
-        const eliminated = eliminationRound[match.round_name]
-        if (eliminated && (rank[eliminated] || 0) > maxRank) {
-          maxRank = rank[eliminated]
-          furthestRound = eliminated
-        }
-      }
-    }
-
-    return furthestRound || 'round_32'
   }
 
   useEffect(() => {
