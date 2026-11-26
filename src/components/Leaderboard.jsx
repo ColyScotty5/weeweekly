@@ -20,7 +20,7 @@ import {
 } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
-import { rankingsApi } from '../lib/supabase.js'
+import { fetchSheetRankings } from '../lib/sheetRankings.js'
 import Avatar from './Avatar.jsx'
 
 export default function Leaderboard({ type, onClose }) {
@@ -36,8 +36,8 @@ export default function Leaderboard({ type, onClose }) {
     setLoading(true)
     setError(null)
     try {
-      const data = await rankingsApi.getRollingLeaderboard(type)
-      setPlayers(data)
+      const data = await fetchSheetRankings(type)
+      setPlayers(data.filter((player) => player.isRanked))
     } catch {
       setError('The leaderboard could not be loaded. Please try again.')
     } finally {

@@ -897,7 +897,7 @@ function isMatchFinished(match) {
  * - Until then the adjacent R1 loser waits as Pending (not auto-advanced via consol Bye)
  */
 export async function syncConsolationMatches(eventId, dataAccess) {
-  const { matchesApi, eventsApi } = dataAccess || (await import('./supabase.js'))
+  const { matchesApi, eventsApi } = dataAccess
 
   const allMatches = await matchesApi.getByEvent(eventId)
   const event = await eventsApi.getById(eventId)
@@ -1159,8 +1159,8 @@ export async function syncConsolationMatches(eventId, dataAccess) {
 }
 
 // Back-compat alias
-export async function generateConsolationMatches(eventId) {
-  return syncConsolationMatches(eventId)
+export async function generateConsolationMatches(eventId, dataAccess) {
+  return syncConsolationMatches(eventId, dataAccess)
 }
 
 /**
@@ -1168,7 +1168,7 @@ export async function generateConsolationMatches(eventId) {
  * Missing opponents stay null and display as "Pending".
  */
 export async function syncNextRoundMatches(eventId, fromRoundName, dataAccess) {
-  const { matchesApi, eventsApi } = dataAccess || (await import('./supabase.js'))
+  const { matchesApi, eventsApi } = dataAccess
 
   const allMatches = await matchesApi.getByEvent(eventId)
   const event = await eventsApi.getById(eventId)

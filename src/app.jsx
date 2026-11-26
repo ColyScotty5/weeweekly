@@ -2,16 +2,11 @@ import { useState } from 'react'
 import {
   AppBar,
   Toolbar,
-  Typography,
   Button,
   IconButton,
   Stack,
   Box,
   Container,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Tooltip,
   Divider,
   Menu,
@@ -20,20 +15,13 @@ import {
 import SportsTennisIcon from '@mui/icons-material/SportsTennis'
 import DarkModeIcon from '@mui/icons-material/DarkMode'
 import LightModeIcon from '@mui/icons-material/LightMode'
-import LogoutIcon from '@mui/icons-material/Logout'
 import MenuIcon from '@mui/icons-material/Menu'
 import { ThemeProvider, useColorScheme } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
 import { theme } from './theme'
-import TournamentManager from './components/TournamentManager'
-import { AuthProvider, useAuth } from './contexts/AuthContext'
-import AuthGuard from './components/AuthGuard'
-import Login from './components/Login'
-import Profile from './components/Profile'
-import Avatar from './components/Avatar'
+import DrawMaker from './components/DrawMaker'
 import Leaderboard from './components/Leaderboard'
 import PublicHome from './components/PublicHome'
-import PasswordRecovery from './components/PasswordRecovery'
 
 function ThemeToggle() {
   const { mode, setMode, systemMode } = useColorScheme()
@@ -54,17 +42,13 @@ function ThemeToggle() {
 }
 
 function AppContent() {
-  const [showProfile, setShowProfile] = useState(false)
   const [showLeaderboard, setShowLeaderboard] = useState(null)
-  const [confirmLogout, setConfirmLogout] = useState(false)
-  const [showAdmin, setShowAdmin] = useState(false)
-  const [showLogin, setShowLogin] = useState(false)
+  const [showDrawMaker, setShowDrawMaker] = useState(false)
   const [mobileMenuAnchor, setMobileMenuAnchor] = useState(null)
-  const { user, logout, loading } = useAuth()
 
   const showPublicSection = (sectionId) => {
     setMobileMenuAnchor(null)
-    setShowAdmin(false)
+    setShowDrawMaker(false)
     window.requestAnimationFrame(() => {
       document.getElementById(sectionId)?.scrollIntoView({
         behavior: 'smooth',
@@ -80,7 +64,7 @@ function AppContent() {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
-      <AppBar position="sticky" color="default" enableColorOnDark>
+      <AppBar position="sticky" color="default" enableColorOnDark sx={{ displayPrint: 'none' }}>
         <Toolbar sx={{ gap: { xs: 0.5, md: 2 }, py: 1 }}>
           <Button
             variant="text"
@@ -137,42 +121,13 @@ function AppContent() {
             alignItems="center"
             sx={{ display: { xs: 'none', md: 'flex' } }}
           >
-            {user && (
-              <>
-                <Button
-                  color="inherit"
-                  onClick={() => setShowProfile(true)}
-                  startIcon={
-                    <Avatar src={user.avatar} alt={user.name} size={32} />
-                  }
-                  sx={{ textTransform: 'none' }}
-                >
-                  {user.name} ({user.roleLabel})
-                </Button>
-                <Button
-                  color="inherit"
-                  size="small"
-                  startIcon={<LogoutIcon />}
-                  onClick={() => setConfirmLogout(true)}
-                >
-                  Sign Out
-                </Button>
-              </>
-            )}
-            {!user && (
-              <Button color="inherit" size="small" onClick={() => setShowLogin(true)}>
-                Admin sign in
-              </Button>
-            )}
-            {user && (
-              <Button
-                color="inherit"
-                size="small"
-                onClick={() => setShowAdmin((current) => !current)}
-              >
-                {showAdmin ? 'Public view' : 'Manage tournaments'}
-              </Button>
-            )}
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => setShowDrawMaker((current) => !current)}
+            >
+              {showDrawMaker ? 'Public view' : 'Make a draw'}
+            </Button>
           </Stack>
           <ThemeToggle />
           <IconButton
@@ -201,60 +156,23 @@ function AppContent() {
         <MenuItem onClick={() => openLeaderboard('doubles')}>Doubles rankings</MenuItem>
         <MenuItem onClick={() => showPublicSection('schedule')}>Season schedule</MenuItem>
         <Divider />
-        {user ? (
-          <>
-            <MenuItem
-              onClick={() => {
-                setMobileMenuAnchor(null)
-                setShowProfile(true)
-              }}
-            >
-              Edit profile
-            </MenuItem>
-            <MenuItem
-              onClick={() => {
-                setMobileMenuAnchor(null)
-                setShowAdmin((current) => !current)
-              }}
-            >
-              {showAdmin ? 'Public view' : 'Manage tournaments'}
-            </MenuItem>
-            <MenuItem
-              onClick={() => {
-                setMobileMenuAnchor(null)
-                setConfirmLogout(true)
-              }}
-            >
-              Sign out
-            </MenuItem>
-          </>
-        ) : (
-          <MenuItem
-            onClick={() => {
-              setMobileMenuAnchor(null)
-              setShowLogin(true)
-            }}
-          >
-            Administrator sign in
-          </MenuItem>
-        )}
+        <MenuItem
+          onClick={() => {
+            setMobileMenuAnchor(null)
+            setShowDrawMaker((current) => !current)
+          }}
+        >
+          {showDrawMaker ? 'Public view' : 'Make a draw'}
+        </MenuItem>
       </Menu>
 
       <Container maxWidth="xl" sx={{ py: 3 }}>
-        {showAdmin ? (
-          <AuthGuard
-            fallback={<PublicHome onOpenLeaderboard={setShowLeaderboard} />}
-          >
-            <TournamentManager />
-          </AuthGuard>
+        {showDrawMaker ? (
+          <DrawMaker />
         ) : (
           <PublicHome onOpenLeaderboard={setShowLeaderboard} />
         )}
       </Container>
-
-      <PasswordRecovery />
-
-      {showProfile && <Profile onClose={() => setShowProfile(false)} />}
 
       {showLeaderboard && (
         <Leaderboard
@@ -263,48 +181,6 @@ function AppContent() {
         />
       )}
 
-      <Dialog
-        open={showLogin}
-        onClose={() => {
-          if (!loading) setShowLogin(false)
-        }}
-        fullWidth
-        maxWidth="xs"
-        aria-labelledby="admin-sign-in-title"
-      >
-        <DialogTitle id="admin-sign-in-title">Administrator sign in</DialogTitle>
-        <DialogContent dividers>
-          <Login
-            onCancel={() => setShowLogin(false)}
-            onSuccess={() => setShowLogin(false)}
-          />
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={confirmLogout}
-        onClose={() => setConfirmLogout(false)}
-        aria-labelledby="sign-out-title"
-      >
-        <DialogTitle id="sign-out-title">Sign out?</DialogTitle>
-        <DialogContent>
-          Are you sure you want to sign out?
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmLogout(false)}>Cancel</Button>
-          <Button
-            color="error"
-            variant="contained"
-            onClick={() => {
-              setConfirmLogout(false)
-              setShowAdmin(false)
-              logout()
-            }}
-          >
-            Sign Out
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   )
 }
@@ -319,9 +195,7 @@ export default function App() {
       forceThemeRerender
     >
       <CssBaseline />
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
+      <AppContent />
     </ThemeProvider>
   )
 }

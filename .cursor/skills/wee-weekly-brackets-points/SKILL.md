@@ -13,7 +13,7 @@ The draw uses ATP/ITF-style placement. The points values are custom Wee Weekly r
 
 - Keep draw and points logic centralized in `src/lib/tournamentUtils.js`.
 - Treat `POINTS_SYSTEM` as the canonical points table.
-- Keep rolling leaderboard calculations aligned between `src/lib/supabase.js` and `get_public_leaderboard` in the Supabase migration.
+- Rankings come from the Google Sheet via `src/lib/sheetRankings.js`; the sheet is the source of truth, so do not recalculate rank points in the app.
 - Make documentation and UI labels reflect these sources; do not create independent point calculations.
 
 ## Draw invariants

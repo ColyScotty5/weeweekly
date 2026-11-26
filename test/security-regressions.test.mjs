@@ -4,7 +4,6 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import test from 'node:test'
 import { compareLeaderboardEntries } from '../src/lib/tournamentUtils.js'
 import { WEE_WEEKLY_SCHEDULE_2026 } from '../src/data/weeWeeklySchedule.js'
-import { validateNewPassword } from '../src/lib/passwordPolicy.js'
 import { parseRichText, richTextToPlainText } from '../src/lib/richText.js'
 
 function readFilesRecursively(directoryUrl, extension) {
@@ -26,17 +25,6 @@ test('repository static security checks pass', () => {
   })
 
   assert.match(output, /Security checks passed/)
-})
-
-test('browser authentication does not contain a local password database', () => {
-  const authContext = readFileSync(
-    new URL('../src/contexts/AuthContext.jsx', import.meta.url),
-    'utf8'
-  )
-
-  assert.doesNotMatch(authContext, /INITIAL_USERS|weeweekly_users|localStorage/)
-  assert.match(authContext, /signInWithPassword/)
-  assert.match(authContext, /admin_profiles/)
 })
 
 test('leaderboard ordering does not require private player fields', () => {
@@ -138,77 +126,6 @@ test('rich text renders through Material components without raw HTML injection',
   for (const { path, source } of sourceFiles) {
     assert.doesNotMatch(source, /dangerouslySetInnerHTML/, `${path} must not inject raw HTML`)
   }
-})
-
-test('anonymous users can access the public leaderboard RPC', () => {
-  const migration = readFileSync(
-    new URL('../supabase/migrations/20260721130000_secure_auth_and_rls.sql', import.meta.url),
-    'utf8'
-  )
-  const supabaseClient = readFileSync(
-    new URL('../src/lib/supabase.js', import.meta.url),
-    'utf8'
-  )
-
-  assert.match(
-    migration,
-    /grant execute on function public\.get_public_leaderboard\(text, integer\) to anon, authenticated;/
-  )
-  assert.match(supabaseClient, /supabase\.rpc\('get_public_leaderboard'/)
-})
-
-test('administrator login opens in a dialog and closes after success', () => {
-  const app = readFileSync(new URL('../src/app.jsx', import.meta.url), 'utf8')
-  const loginForm = readFileSync(
-    new URL('../src/components/Login.jsx', import.meta.url),
-    'utf8'
-  )
-
-  assert.match(app, /const \[showLogin, setShowLogin\] = useState\(false\)/)
-  assert.match(app, /open=\{showLogin\}/)
-  assert.match(app, /onSuccess=\{\(\) => setShowLogin\(false\)\}/)
-  assert.match(loginForm, /await login\(formData\.email, formData\.password\)/)
-  assert.match(loginForm, /onSuccess\?\.\(\)/)
-})
-
-test('password recovery requires a new strong matching password', () => {
-  assert.equal(validateNewPassword('', ''), 'Enter a new password')
-  assert.match(validateNewPassword('too-short', 'too-short'), /at least 12 characters/)
-  assert.equal(
-    validateNewPassword('a-secure-new-password', 'different-password'),
-    'Passwords do not match'
-  )
-  assert.equal(
-    validateNewPassword('a-secure-new-password', 'a-secure-new-password'),
-    ''
-  )
-})
-
-test('Supabase recovery sessions must replace the password before admin access', () => {
-  const authContext = readFileSync(
-    new URL('../src/contexts/AuthContext.jsx', import.meta.url),
-    'utf8'
-  )
-  const recoveryDialog = readFileSync(
-    new URL('../src/components/PasswordRecovery.jsx', import.meta.url),
-    'utf8'
-  )
-  const loginForm = readFileSync(
-    new URL('../src/components/Login.jsx', import.meta.url),
-    'utf8'
-  )
-
-  assert.match(authContext, /event === 'PASSWORD_RECOVERY'/)
-  assert.match(authContext, /passwordRecoveryRequired/)
-  assert.match(authContext, /supabase\.auth\.resetPasswordForEmail\(email\.trim\(\)/)
-  assert.match(authContext, /window\.location\.origin/)
-  assert.match(authContext, /supabase\.auth\.updateUser\(\{\s*password: newPassword/s)
-  assert.match(authContext, /supabase\.auth\.signOut\(\{ scope: 'global' \}\)/)
-  assert.match(authContext, /!passwordRecoveryRequired && user/)
-  assert.match(recoveryDialog, /await completePasswordRecovery\(password\)/)
-  assert.match(recoveryDialog, /autoComplete="new-password"/)
-  assert.match(loginForm, /await requestPasswordRecovery\(formData\.email\)/)
-  assert.match(loginForm, /If that email belongs to an account/)
 })
 
 test('frontend styling remains Material UI only', () => {
