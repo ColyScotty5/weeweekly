@@ -61,7 +61,7 @@ export default function Leaderboard({ type, onClose }) {
       aria-labelledby={`${type}-leaderboard-title`}
     >
       <DialogTitle id={`${type}-leaderboard-title`} sx={{ pr: 6 }}>
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           <EmojiEventsIcon color="primary" aria-hidden="true" />
           <span>{type === 'singles' ? 'Singles' : 'Doubles'} Leaderboard</span>
         </Stack>
@@ -117,12 +117,12 @@ export default function Leaderboard({ type, onClose }) {
                       {rankDisplay(player.rank)}
                     </TableCell>
                     <TableCell>
-                      <Stack direction="row" spacing={1.5} alignItems="center">
+                      <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
                         <Avatar
                           alt={player.name}
                           size={40}
                         />
-                        <Typography fontWeight={500}>{player.name}</Typography>
+                        <Typography sx={{ fontWeight: 500 }}>{player.name}</Typography>
                       </Stack>
                     </TableCell>
                     <TableCell align="center" sx={{ color: 'primary.main', fontWeight: 600 }}>

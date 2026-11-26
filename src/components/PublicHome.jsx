@@ -75,13 +75,12 @@ export default function PublicHome({ onOpenLeaderboard }) {
         })}
       >
         <Container maxWidth="md" sx={{ py: { xs: 7, md: 10 }, textAlign: 'center' }}>
-          <Stack spacing={2.5} alignItems="center">
+          <Stack spacing={2.5} sx={{ alignItems: 'center' }}>
             <Typography
               id="wee-weekly-heading"
               variant="h2"
               component="h1"
-              fontWeight={700}
-              sx={{ fontSize: { xs: '2.4rem', sm: '3.4rem', md: '4rem' } }}
+              sx={{ fontWeight: 700, fontSize: { xs: '2.4rem', sm: '3.4rem', md: '4rem' } }}
             >
               The Legendary Wee Weekly
             </Typography>
@@ -141,9 +140,9 @@ export default function PublicHome({ onOpenLeaderboard }) {
               <Grid key={detail.title} size={{ xs: 12, md: 4 }}>
                 <Card variant="outlined" sx={{ height: '100%' }}>
                   <CardContent sx={{ p: 3 }}>
-                    <Stack spacing={1.5} alignItems="flex-start">
+                    <Stack spacing={1.5} sx={{ alignItems: 'flex-start' }}>
                       {detail.icon}
-                      <Typography variant="h6" component="h3" fontWeight={700}>
+                      <Typography variant="h6" component="h3" sx={{ fontWeight: 700 }}>
                         {detail.title}
                       </Typography>
                       <Typography color="text.secondary">{detail.body}</Typography>
@@ -159,8 +158,10 @@ export default function PublicHome({ onOpenLeaderboard }) {
             sx={{ maxWidth: 760, mx: 'auto', mt: 4, textAlign: 'center' }}
           >
             <Typography>
-              Each match is one standard set with a seven-point tiebreak at 6–6.
-              Players are encouraged to bring a new or lightly used can of balls.
+                <ul>
+                  <li>Each match is one standard set with a seven-point tiebreak at 6–6.</li>
+                  <li>Players are encouraged to bring a new or lightly used can of balls.</li>
+                </ul>
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Information adapted from the{' '}
@@ -193,8 +194,7 @@ export default function PublicHome({ onOpenLeaderboard }) {
           <Stack
             spacing={1.5}
             useFlexGap
-            alignItems="center"
-            sx={{ mb: 4, textAlign: 'center' }}
+            sx={{ mb: 4, textAlign: 'center', alignItems: 'center' }}
           >
             <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
               <EmojiEventsIcon color="gold" sx={{ fontSize: 100 }} />
@@ -213,9 +213,9 @@ export default function PublicHome({ onOpenLeaderboard }) {
               <Grid key={option.type} size={{ xs: 12, sm: 6 }}>
                 <Card variant="outlined" sx={{ height: '100%' }}>
                   <CardContent sx={{ p: 3, height: '100%' }}>
-                    <Stack spacing={2} alignItems="flex-start" sx={{ height: '100%' }}>
+                    <Stack spacing={2} sx={{ alignItems: 'flex-start', height: '100%' }}>
                       <SportsTennisIcon color={option.color} fontSize="large" />
-                      <Typography variant="h5" component="h3" fontWeight={700}>
+                      <Typography variant="h5" component="h3" sx={{ fontWeight: 700 }}>
                         {option.title}
                       </Typography>
                       <Typography color="text.secondary" sx={{ flexGrow: 1 }}>

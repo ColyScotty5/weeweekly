@@ -90,14 +90,14 @@ export default function SeasonSchedule() {
       <Container maxWidth="lg">
         <Stack spacing={1.5} sx={{ mb: 4, textAlign: 'center' }}>
           <Typography id="schedule-heading" variant="h4" component="h2">
-            2026 season schedule
+            2027 Season Schedule (coming in 2027)
           </Typography>
           <Typography color="text.secondary">
             Upcoming dates, cancellations, draw sheets, and completed tournament results.
           </Typography>
         </Stack>
 
-        <TableContainer
+        {/* <TableContainer
           component={Paper}
           variant="outlined"
           tabIndex={0}
@@ -160,9 +160,9 @@ export default function SeasonSchedule() {
               })}
             </TableBody>
           </Table>
-        </TableContainer>
+        </TableContainer> */}
 
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+        {/* <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
           Schedule sourced from the{' '}
           <Link
             href="https://www.stgeorgestennisclub.com/wee-weekly/"
@@ -172,7 +172,7 @@ export default function SeasonSchedule() {
             St. George&apos;s Tennis Club Wee Weekly page
           </Link>
           .
-        </Typography>
+        </Typography> */}
       </Container>
     </Box>
   )
