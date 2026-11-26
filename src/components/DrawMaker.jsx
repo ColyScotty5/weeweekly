@@ -172,8 +172,7 @@ export default function DrawMaker() {
           <Stack
             direction={{ xs: 'column', sm: 'row' }}
             spacing={2}
-            alignItems={{ xs: 'flex-start', sm: 'center' }}
-            justifyContent="space-between"
+            sx={{ alignItems: { xs: 'flex-start', sm: 'center' }, justifyContent: 'space-between' }}
           >
             <Typography variant="h5" component="h2">
               Make a draw
@@ -191,7 +190,7 @@ export default function DrawMaker() {
             </ToggleButtonGroup>
           </Stack>
 
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+          <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
             {loading ? (
               <CircularProgress size={18} />
             ) : (
@@ -267,7 +266,7 @@ export default function DrawMaker() {
             )}
           />
 
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: { sm: 'center' } }}>
             <Button
               variant="contained"
               size="large"
@@ -297,9 +296,7 @@ export default function DrawMaker() {
           <Stack
             direction={{ xs: 'column', sm: 'row' }}
             spacing={2}
-            justifyContent="space-between"
-            alignItems={{ xs: 'flex-start', sm: 'center' }}
-            sx={{ mb: 2 }}
+            sx={{ mb: 2, alignItems: { xs: 'flex-start', sm: 'center' }, justifyContent: 'space-between' }}
           >
             <Box>
               <Typography variant="h6" component="h3">

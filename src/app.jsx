@@ -118,8 +118,7 @@ function AppContent() {
           <Stack
             direction="row"
             spacing={1}
-            alignItems="center"
-            sx={{ display: { xs: 'none', md: 'flex' } }}
+            sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center' }}
           >
             <Button
               color="inherit"
