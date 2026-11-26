@@ -1,29 +1,15 @@
 # Deployment Guide
 
-Deploy the Wee Weekly app (Vite + React + Supabase) as a static site. Production files live in `dist/` after `npm run build`.
+Deploy the Wee Weekly app (Vite + React) as a static site. Production files live in `dist/` after `npm run build`.
 
-Before deploying, apply the versioned Supabase migrations and follow the
-administrator bootstrap/credential-rotation procedure in
-[`SECURITY.md`](./SECURITY.md). The application must not be deployed while
-anonymous database writes are still permitted.
+The app has no backend and needs no secrets. It reads rankings straight from the
+public Google Sheet in the browser.
 
 ## Recommended: GitHub Pages + custom domain
 
 The repo includes [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml). Every push to `main` (or a manual **Run workflow**) builds the app and publishes it to GitHub Pages.
 
-### 1. Add Supabase secrets
-
-Vite embeds `VITE_*` values at **build** time, so GitHub Actions needs them as repository secrets.
-
-1. Open the repo → **Settings → Secrets and variables → Actions**
-2. Add:
-   - `VITE_SUPABASE_URL` — e.g. `https://xxxx.supabase.co`
-   - `VITE_SUPABASE_PUBLISHABLE_KEY` — preferred (Supabase publishable / anon key)
-   - *(optional)* `VITE_SUPABASE_ANON_KEY` — only if you still use the older name locally
-
-Get values from Supabase → **Project Settings → API**.
-
-### 2. Enable GitHub Pages (Actions)
+### 1. Enable GitHub Pages (Actions)
 
 1. Repo → **Settings → Pages**
 2. **Build and deployment → Source**: **GitHub Actions** (not “Deploy from a branch”)
@@ -31,7 +17,7 @@ Get values from Supabase → **Project Settings → API**.
 4. Confirm the workflow succeeds; the site will be at  
    `https://<user-or-org>.github.io/<repo-name>/` until a custom domain is set
 
-### 3. Attach your custom domain
+### 2. Attach your custom domain
 
 1. Still under **Settings → Pages**, set **Custom domain** to your domain (e.g. `weeweekly.example.com`) and save
 2. At your DNS provider, point the domain at GitHub:
@@ -58,42 +44,20 @@ Get values from Supabase → **Project Settings → API**.
 1. [netlify.com](https://netlify.com) → **Add new site → Import an existing project** → connect GitHub
 2. Build command: `npm run build`
 3. Publish directory: `dist`
-4. Site settings → **Environment variables**: same `VITE_SUPABASE_*` keys as above
-5. Domain management → add your custom domain and follow DNS prompts
+4. Domain management → add your custom domain and follow DNS prompts
 
 ### Vercel
 
 1. [vercel.com](https://vercel.com) → **Import** the GitHub repo (Vite is auto-detected)
-2. Add the same `VITE_SUPABASE_*` environment variables
-3. Deploy; attach the domain under **Project → Settings → Domains**
+2. Deploy; attach the domain under **Project → Settings → Domains**
 
 ### Traditional web hosting
 
-1. Run `npm run build` locally (with a production `.env` present)
+1. Run `npm run build` locally
 2. Upload the contents of `dist/` to the web root
 3. Configure the server to serve `index.html` for unknown paths (SPA fallback)
 
-## Environment variables
-
-### Local development
-
-Create `.env` in the project root (gitignored):
-
-```
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-or-anon-key
-```
-
-`VITE_SUPABASE_ANON_KEY` is still accepted as a fallback. Restart the dev server after changing `.env`.
-
-### Production
-
-| Platform | Where to set |
-|---|---|
-| GitHub Pages | Repo **Actions** secrets (see above) |
-| Netlify / Vercel | Project environment variables, then redeploy |
-
-**Security:** The publishable/anon key is meant for the browser and must be protected by Supabase **RLS**. Never commit `.env` or service-role keys.
+## Security headers
 
 For complete CSP, anti-framing, HSTS, referrer, and permissions headers, use a
 host that supports custom response headers. `vercel.json` contains the required
@@ -103,7 +67,7 @@ uses only the CSP and referrer policy embedded in `index.html`.
 ## SPA routing & HTTPS
 
 - Serve `index.html` for client routes if you add path-based routing later (GitHub Pages serves the built `index.html` at `/` by default).
-- Prefer HTTPS (GitHub Pages / Netlify / Vercel provide this). Needed for secure cookies and modern browser APIs when talking to Supabase.
+- Prefer HTTPS (GitHub Pages / Netlify / Vercel provide this).
 
 ## Test the production build locally
 
@@ -114,9 +78,10 @@ npm run preview
 
 ## Troubleshooting
 
-### White screen / failed API calls
-- Confirm Actions secrets (or host env vars) are set and the workflow rebuilt after adding them
-- Check the browser console for missing Supabase URL/key or RLS errors
+### Rankings fail to load
+- Confirm the Google Sheet is still shared as "Anyone with the link can view"
+- The Content-Security-Policy in `index.html` and `vercel.json` must allow
+  `https://docs.google.com` and `https://*.googleusercontent.com` in `connect-src`
 
 ### Custom domain not working
 - DNS still propagating (can take minutes to hours)

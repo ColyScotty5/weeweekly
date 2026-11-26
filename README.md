@@ -1,34 +1,45 @@
-# Wee Weekly Tennis Tournament App
+# Wee Weekly Draw Maker
 
-A comprehensive web application for managing weekly tennis tournaments with automated draw generation, match tracking, and player rankings.
+A small static web app that builds Wee Weekly singles and doubles draws in seconds.
+Pick who is playing, press **Generate draw**, and copy the seeded, bye-placed
+draw onto the paper draw sheet.
 
-## Features
+There is no database or login. Player rankings are read live from the
+[Wee Weekly rankings Google Sheet](https://docs.google.com/spreadsheets/d/1gsTb1NsWfnTGI3e4qx6mKw4VtTfIkOeKls88dqsKsm8/edit),
+which stays the single source of truth. Results are entered into the sheet by
+hand after each event.
 
-### Tournament Management
-- Create and manage weekly tournaments
-- Support for both singles and doubles events
-- Automated player registration system
-- Tournament status tracking (upcoming, in-progress, completed)
+## How it works
 
-### Draw Generation
-- **Singles**: Top 1/4 of participants get seeded, rest are randomly placed
-- **Doubles**: Half of participants get seeded, other half randomly assigned as partners
-- Standard tournament bracket structure
-- Consolation bracket sized from the main draw, always ending on a single final
+1. Open the site and choose **Make a draw**.
+2. Pick **Singles** or **Doubles**. The matching sheet tab is downloaded as CSV.
+3. Type each player's name and press Enter. Names not on the sheet are added
+   as unranked walk-ins.
+4. Press **Generate draw** (or **Re-draw** to reshuffle the random placements).
+5. Copy each numbered line onto the paper sheet, or use **Copy** / **Print**.
 
-### Match Tracking
-- Record match results with scores
-- Automatic points calculation based on tournament rules
-- Real-time tournament progress tracking
-- Match status management (scheduled, in-progress, completed)
+The public pages (About, Schedule, and the Singles/Doubles leaderboards) also
+read from the sheet.
 
-### Player Rankings
-- Separate rankings for singles and doubles
-- Points-based ranking system
-- Historical performance tracking
-- Automatic ranking updates after tournaments
+### Seeding rules
+- **Singles**: the top quarter of the field (rounded up) is seeded, using only
+  players with at least one event on the sheet, in sheet rank order (ties broken
+  by rank points, then total points). Everyone else is placed randomly.
+- **Doubles**: up to half the field is seeded from players with rank points
+  above zero. Each seed gets a random partner; everyone else is randomly paired.
+- Seeds use the standard ATP/ITF bracket positions, and byes go to the top
+  seeds first, then the next-highest-ranked unseeded players.
 
-### Points System
+### Sheet requirements
+- The spreadsheet must be shared as **Anyone with the link can view**.
+- Each tab needs a header row with `Rank`, `Player Name`, `Rnk Pts`, `TTL Pts`,
+  `Tm` and `CD`. Rows above the header and rows without a numeric rank
+  (such as the totals row) are ignored.
+- Players are matched by name (case and extra spaces are ignored), so type
+  names the way the sheet spells them.
+- The sheet ID and tab IDs live in `src/lib/sheetRankings.js`.
+
+## Points System (reference for scoring the sheet)
 
 A player earns one result per event. Losing in the main draw and then playing the
 consolation means the consolation result is the one that counts — the consolation
@@ -37,7 +48,7 @@ consolation tier is decided by how close the round is to the consolation final, 
 the first consolation round is a quarter-final in an eight-player consolation and a
 semi-final in a four-player one.
 
-#### Singles Events
+### Singles Events
 **Main Draw:**
 - Winner: 45 points
 - Runner-up: 30 points
@@ -54,7 +65,7 @@ semi-final in a four-player one.
 - Round of 16: 2 points
 - Round of 32: 1 point
 
-#### Doubles Events
+### Doubles Events
 **Main Draw:**
 - Winner: 30 points
 - Runner-up: 20 points
@@ -71,161 +82,25 @@ semi-final in a four-player one.
 - Round of 16: 2 points
 - Round of 32: 1 point
 
-## Database Schema
-
-The application uses Supabase (PostgreSQL) with the following main tables:
-
-- **players**: Player information and statistics
-- **tournaments**: Tournament details and scheduling
-- **events**: Individual events within tournaments (singles/doubles)
-- **event_participants**: Player registrations for events
-- **matches**: Individual matches with results
-- **match_results**: Points earned by players in matches
-
-## Setup Instructions
-
-### Prerequisites
-- Node.js (v16 or higher)
-- npm or yarn
-- Supabase account
-
-### 1. Clone and Install
-```bash
-git clone <repository-url>
-cd weeweeklyapp
-npm install
-```
-
-### 2. Supabase Setup
-1. Create a new project at [supabase.com](https://supabase.com)
-2. Go to Settings > API to get your project URL and anon key
-3. Create a `.env` file in the project root:
-```env
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
-
-### 3. Database Setup
-1. Install the Supabase CLI and link it to the intended project
-2. Review the versioned migrations under `supabase/migrations/`
-3. Run `supabase db push`
-4. Create administrator users through Supabase Auth, then provision their
-   `admin_profiles` rows through a trusted operator session
-
-### 4. Initial Data (Optional)
-Add players through the authenticated administration UI. Production-derived
-player fixtures and local seed helpers are intentionally not stored in this repository.
-
-### 5. Run the Application
-```bash
-npm run dev
-```
-
-The app will be available at `http://localhost:5173`
-
-## Deployment
-
-### Production Build
-To build the app for production deployment:
-```bash
-npm run build
-```
-
-The built files will be in the `dist/` folder, ready for deployment to any web server.
-
-### Deployment Options
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions including:
-- GitHub Pages (free)
-- Netlify (free tier available)
-- Vercel (free tier available)
-- Traditional web hosting
-
-### Testing Production Build Locally
-```bash
-npm run preview
-```
-
-## Usage Guide
-
-### Creating a Tournament
-1. Go to the "Tournament Manager" tab
-2. Click "Create New Tournament"
-3. Fill in tournament details:
-   - Name (e.g., "Wee Weekly - March 15, 2024")
-   - Date
-   - Description (optional)
-   - Select which events to include (singles/doubles)
-   - Set maximum participants for each event
-
-### Managing Player Registration
-1. Select a tournament from the list
-2. For each event, click "Manage Registration"
-3. Select players from the available list
-4. Players are automatically sorted by ranking for seeding purposes
-
-### Generating Draws
-1. Ensure at least 4 players are registered for an event
-2. Click "Generate Draw" for the event
-3. The system will:
-   - Seed top players according to tournament rules
-   - Randomly place unseeded players
-   - Create the bracket structure
-   - Generate first round matches
-
-### Recording Match Results
-1. Navigate to an event with generated matches
-2. Click "Record Result" on any scheduled match
-3. Select the winner and enter the score
-4. Points are automatically calculated and awarded
-5. Player rankings are updated in real-time
-
-### Viewing Rankings
-Player rankings are automatically calculated based on tournament results and displayed throughout the application.
-
-## Technical Details
-
-### Architecture
-- **Frontend**: Preact (React-like framework)
-- **Backend**: Supabase (PostgreSQL + API)
-- **Styling**: CSS-in-JS with inline styles
-- **State Management**: Preact hooks
-
-### Key Components
-- `TournamentManager`: Main tournament creation and management interface
-- `MatchResults`: Match result entry and tracking
-- `DatabaseTest`: Database connection testing and data seeding
-- Tournament utilities for draw generation and points calculation
-
-### API Structure
-The app uses a modular API structure with separate modules for:
-- `playersApi`: Player CRUD operations and rankings
-- `tournamentsApi`: Tournament management
-- `eventsApi`: Event management within tournaments
-- `participantsApi`: Player registration for events
-- `matchesApi`: Match creation and result tracking
-- `resultsApi`: Points and results management
-
 ## Development
 
-### Adding New Features
-The modular structure makes it easy to extend functionality:
-- Add new API methods in `src/lib/supabase.js`
-- Create new components in `src/components/`
-- Extend tournament utilities in `src/lib/tournamentUtils.js`
+```bash
+npm install
+npm run dev      # http://localhost:5173
+npm run check    # security checks, tests, production build
+```
 
-### Database Modifications
-When modifying the database schema:
-1. Add a new versioned file under `supabase/migrations/`
-2. Update corresponding API methods
-3. Update component interfaces as needed
-4. Run `supabase test db` and the repository security checks
+No environment variables are needed.
+
+- `src/lib/sheetRankings.js`: downloads and parses the sheet tabs
+- `src/components/DrawMaker.jsx`: the draw page
+- `src/lib/tournamentUtils.js`: seeding, bye placement, and points rules
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for hosting.
 
 ## Troubleshooting
 
-### Common Issues
-1. **Database connection errors**: Check your `.env` file and Supabase credentials
-2. **RLS (Row Level Security) issues**: Run the policy tests under `supabase/tests/` and verify the linked Supabase project
-3. **Draw generation fails**: Verify minimum participant requirements are met
-
-### Support
-For issues or questions, check the browser console for detailed error messages and ensure all database migrations have been applied correctly.
+- **"The rankings could not be loaded"**: check that the sheet is still shared
+  publicly, and that the tab IDs in `src/lib/sheetRankings.js` still match.
+- **A player shows as Walk-in**: their name doesn't match the sheet spelling.
+- **Doubles draw fails**: doubles needs an even number of players.
